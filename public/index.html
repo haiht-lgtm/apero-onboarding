@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>APERO Onboarding</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/style.css?v=4" />
+  <script>
+    tailwind.config = {
+      theme: { extend: {
+        colors: {
+          brand: { 50:'#eef2ff', 100:'#e0e7ff', 500:'#6366f1', 600:'#4f46e5', 700:'#4338ca' }
+        }
+      }}
+    };
+  </script>
+</head>
+<body class="bg-slate-100 text-slate-800">
+  <div class="flex min-h-screen">
+    <!-- SIDEBAR -->
+    <aside class="w-60 bg-gradient-to-b from-slate-900 to-slate-800 text-slate-200 flex flex-col sticky top-0 h-screen">
+      <div class="px-4 py-5 flex items-center gap-3 border-b border-slate-700">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 grid place-items-center font-bold text-white text-lg">A</div>
+        <div>
+          <div class="font-bold text-white">APERO</div>
+          <div class="text-[10px] tracking-widest text-slate-400 uppercase">Onboarding</div>
+        </div>
+      </div>
+      <nav class="flex-1 p-3 space-y-1 overflow-y-auto" id="sidebarMenu">
+        <a class="menu-item" data-route="dashboard"><span>📊</span><span>Dashboard</span></a>
+        <a class="menu-item" data-route="candidates"><span>👥</span><span>Ứng Viên</span></a>
+        <a class="menu-item" data-route="emails"><span>✉️</span><span>Lịch Email</span></a>
+        <a class="menu-item" data-route="orders"><span>📦</span><span>Order Bộ Phận</span></a>
+        <a class="menu-item" data-route="checklist"><span>✅</span><span>Checklist</span></a>
+        <a class="menu-item" data-route="followup"><span>❓</span><span>Câu hỏi Follow-up</span></a>
+        <a class="menu-item" data-route="templates"><span>📝</span><span>Mẫu Email</span></a>
+        <a class="menu-item" data-route="docs"><span>📁</span><span>Tài Liệu &amp; Link</span></a>
+        <a class="menu-item" data-route="settings"><span>⚙️</span><span>Cài Đặt</span></a>
+      </nav>
+      <div class="px-4 py-3 border-t border-slate-700 text-xs text-slate-500">
+        v2.0 · Today <span id="todayLabel"></span>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="flex-1 min-w-0 flex flex-col">
+      <header class="sticky top-0 z-10 bg-white border-b border-slate-200 px-7 py-4 flex justify-between items-center">
+        <h1 id="pageTitle" class="text-xl font-bold text-slate-900">Dashboard</h1>
+        <div id="topActions" class="flex gap-2"></div>
+      </header>
+      <section class="p-7 flex-1 overflow-x-auto" id="content">Loading…</section>
+    </main>
+  </div>
+
+  <div id="modalRoot"></div>
+  <div id="toastRoot" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2"></div>
+
+  <script src="/app.js?v=4"></script>
+</body>
+</html>

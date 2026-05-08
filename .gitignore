@@ -1,0 +1,13 @@
+node_modules/
+data.db
+data.db-shm
+data.db-wal
+data.db.v1.bak
+data.db.bak
+server.log
+read_workflow.js
+read_full.js
+read_full2.js
+*.log
+.env
+.DS_Store

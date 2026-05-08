@@ -1,0 +1,22 @@
+# Render.com Blueprint — auto-config khi connect repo
+# Tham khảo: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: apero-onboarding
+    runtime: node
+    plan: starter   # $7/mo có persistent disk + always-on. Đổi thành "free" nếu muốn miễn phí (sleep 15min, không có disk)
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 22.5.0
+      - key: DB_PATH
+        value: /data/data.db
+      - key: TZ
+        value: Asia/Ho_Chi_Minh
+    disk:
+      name: apero-data
+      mountPath: /data
+      sizeGB: 1
+    healthCheckPath: /healthz
+    autoDeploy: true

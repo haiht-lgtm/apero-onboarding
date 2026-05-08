@@ -1,0 +1,19 @@
+{
+  "name": "apero-onboarding",
+  "version": "1.0.0",
+  "description": "APERO HR Onboarding Automation — Candidate, Email Scheduling & Checklist",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^6.9.15",
+    "xlsx": "^0.18.5"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  }
+}
