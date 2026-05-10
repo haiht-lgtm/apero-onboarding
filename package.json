@@ -1,23 +1,21 @@
 {
   "name": "apero-onboarding",
-  "version": "1.0.0",
-  "description": "APERO HR Onboarding Automation — Candidate, Email Scheduling & Checklist",
-  "main": "server.js",
+  "version": "2.0.0",
+  "description": "APERO HR Onboarding — template generator + checklist tracker (Vercel + Upstash KV)",
+  "main": "server-v2.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js",
-    "sheet:test": "node scripts/test-sheet.js",
-    "sheet:sync": "node scripts/sync-candidates.js"
+    "start": "node server-v2.js",
+    "dev": "node --watch server-v2.js",
+    "start:legacy": "node server.js",
+    "dev:legacy": "node --watch server.js"
   },
   "dependencies": {
+    "@upstash/redis": "^1.34.0",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
-    "googleapis": "^144.0.0",
-    "node-cron": "^3.0.3",
-    "nodemailer": "^6.9.15",
-    "xlsx": "^0.18.5"
+    "nodemailer": "^6.9.15"
   },
   "engines": {
-    "node": ">=22.5.0"
+    "node": ">=20.0.0"
   }
 }

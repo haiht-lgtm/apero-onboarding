@@ -4,6 +4,7 @@ data.db-shm
 data.db-wal
 data.db.v1.bak
 data.db.bak
+.kv-local.json
 server.log
 read_workflow.js
 read_full.js
@@ -11,5 +12,6 @@ read_full2.js
 *.log
 .env
 .env.local
+.vercel
 google-credentials.json
 .DS_Store
