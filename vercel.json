@@ -1,8 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
-    { "source": "/api/cron/:path*", "destination": "/api/cron/:path*" },
-    { "source": "/api/:path*", "destination": "/api/[...path]" },
     { "source": "/healthz", "destination": "/api/[...path]" }
   ],
   "crons": [

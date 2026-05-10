@@ -12,9 +12,9 @@ const PORT = process.env.PORT || 3000;
 
 (async () => {
   console.log(`🗄️  Storage mode: ${kv.mode()}`);
-  if (!kv.HAS_KV) {
+  if (!kv.HAS_BLOB) {
     console.log('   → Local file: .kv-local.json (data persist qua restart)');
-    console.log('   → Production: set env KV_REST_API_URL + KV_REST_API_TOKEN để dùng Vercel KV');
+    console.log('   → Production: Vercel auto-set BLOB_READ_WRITE_TOKEN khi tạo Blob store');
   }
 
   const seeded = await store.seedIfEmpty();
