@@ -28,23 +28,26 @@ const candidateStatus = sd => {
   return { label:'Hoàn thành', cls:'bg-green-100 text-green-700' };
 };
 
-// ═══════════ ROUTER ═══════════
+// ═══════════ ROUTER (History API — không dùng hash) ═══════════
 const routes = {};
 const navigate = (route, params={}) => {
-  const url = '#/' + route + (params.id?'/'+params.id:'') + (params.tab?'/'+params.tab:'');
-  if (location.hash !== url) location.hash = url; else render();
+  const url = '/' + route + (params.id?'/'+params.id:'') + (params.tab?'/'+params.tab:'');
+  if (location.pathname !== url) {
+    history.pushState({}, '', url);
+    render();
+  } else render();
 };
 const render = async () => {
-  const hash = location.hash.replace(/^#\//, '') || 'dashboard';
-  const [route, id, tab] = hash.split('/');
+  const path = location.pathname.replace(/^\/+/, '') || 'dashboard';
+  const [route, id, tab] = path.split('/');
   $$('.menu-item').forEach(m => m.classList.toggle('active', m.dataset.route === route));
   $('#topActions').innerHTML = '';
   $('#content').innerHTML = '<div class="text-center text-slate-400 py-10">Đang tải…</div>';
   try { await (routes[route] || routes.dashboard)(id, tab); }
   catch (e) { console.error(e); $('#content').innerHTML = `<div class="text-center text-red-600 py-10">Lỗi: ${escapeHtml(e.message)}</div>`; }
 };
-window.addEventListener('hashchange', render);
-$$('.menu-item').forEach(el => el.addEventListener('click', () => navigate(el.dataset.route)));
+window.addEventListener('popstate', render);
+$$('.menu-item').forEach(el => el.addEventListener('click', e => { e.preventDefault(); navigate(el.dataset.route); }));
 $('#todayLabel').textContent = new Date().toLocaleDateString('vi-VN');
 
 // ═══════════ DASHBOARD ═══════════
