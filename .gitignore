@@ -5,6 +5,7 @@ data.db-wal
 data.db.v1.bak
 data.db.bak
 .kv-local.json
+.kv-local.json.backup
 server.log
 read_workflow.js
 read_full.js
