@@ -25,6 +25,7 @@ module.exports = async (req, res) => {
     dept_cb_phuongth_email: settings.dept_cb_phuongth_email
   };
 
+  const effectiveTemplates = await store.getEffectiveTemplates();
   const cands = await store.listCandidates();
   let due = 0, sent = 0, failed = 0;
   const results = [];
@@ -32,7 +33,7 @@ module.exports = async (req, res) => {
   for (const c of cands) {
     if (c.status !== 'active') continue;
     const state = await store.getState(c.id);
-    const emails = timeline.generateEmails(c, dept);
+    const emails = timeline.generateEmails(c, dept, effectiveTemplates);
     for (const e of emails) {
       const s = state[`email:${e.template_key}`];
       if (e.scheduled_date !== today || s?.sent) continue;
