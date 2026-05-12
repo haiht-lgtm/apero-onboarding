@@ -9,12 +9,50 @@ const todayStr = () => new Date().toISOString().slice(0,10);
 const initials = n => (n||'?').trim().split(/\s+/).slice(-2).map(w=>w[0]).join('').toUpperCase();
 const escapeHtml = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const msClass = m => 'ms-' + (m||'').replace('+','p').replace(/\s/g,'');
-const api = {
-  get: u => fetch(u).then(r=>r.json()),
-  post: (u,b) => fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})}).then(r=>r.json()),
-  put:  (u,b) => fetch(u,{method:'PUT', headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})}).then(r=>r.json()),
-  del:  u => fetch(u,{method:'DELETE'}).then(r=>r.json())
+const handle = async r => {
+  if (r.status === 401) {
+    // Session hết hạn → về login
+    location.href = '/login?redirect=' + encodeURIComponent(location.pathname);
+    throw new Error('Unauthorized');
+  }
+  return r.json();
 };
+const api = {
+  get: u => fetch(u).then(handle),
+  post: (u,b) => fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})}).then(handle),
+  put:  (u,b) => fetch(u,{method:'PUT', headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})}).then(handle),
+  del:  u => fetch(u,{method:'DELETE'}).then(handle)
+};
+// Check session khi load, redirect /login nếu chưa đăng nhập
+(async () => {
+  try {
+    const r = await fetch('/api/auth/me');
+    if (r.status === 401) {
+      location.href = '/login?redirect=' + encodeURIComponent(location.pathname);
+      return;
+    }
+    const data = await r.json();
+    if (data.user) {
+      window.__currentUser = data.user;
+      // Render user info trong sidebar
+      const userBox = document.getElementById('userBox');
+      if (userBox) {
+        userBox.classList.remove('hidden');
+        document.getElementById('userName').textContent = data.user.name || data.user.email;
+        document.getElementById('userEmail').textContent = data.user.email;
+        if (data.user.picture) document.getElementById('userAvatar').src = data.user.picture;
+      }
+    }
+  } catch (e) { /* network error — sẽ retry khi API call */ }
+})();
+// Logout button
+document.addEventListener('click', async e => {
+  if (e.target.closest('#logoutBtn')) {
+    e.preventDefault();
+    await fetch('/api/auth/logout', { method: 'POST' });
+    location.href = '/login';
+  }
+});
 const toast = (msg, type='') => {
   const el = document.createElement('div');
   el.className = 'toast '+type; el.textContent = msg;
