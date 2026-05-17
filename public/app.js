@@ -849,8 +849,28 @@ routes.orders = async () => {
   $$('[data-receiver]').forEach(c => c.onclick = () => { orderFilter.receiver = c.dataset.receiver; render(); });
   $$('[data-status]').forEach(c => c.onclick = () => { orderFilter.status = c.dataset.status; render(); });
   $$('[data-cid]').forEach(b => b.onclick = () => navigate('candidates', { id:b.dataset.cid, tab:'orders' }));
-  $$('[data-email]').forEach(cb => cb.onchange = async () => { await api.put('/api/orders/'+cb.dataset.email, { email_sent: cb.checked?1:0 }); toast('💾','success'); render(); });
-  $$('[data-process]').forEach(cb => cb.onchange = async () => { await api.put('/api/orders/'+cb.dataset.process, { processed: cb.checked?1:0 }); toast('💾','success'); render(); });
+  // Toggle checkbox với error handling rõ ràng + disable trong khi save
+  const toggleOrder = async (cb, field) => {
+    const original = !cb.checked; // state cũ trước khi check
+    cb.disabled = true;
+    try {
+      const r = await api.put('/api/orders/'+cb.dataset[field], { [field === 'email' ? 'email_sent' : 'processed']: cb.checked?1:0 });
+      if (r.error) {
+        cb.checked = original; // revert
+        toast('❌ Lỗi save: '+r.error,'error');
+      } else {
+        toast('✅ Đã lưu','success');
+        render();
+      }
+    } catch (err) {
+      cb.checked = original;
+      toast('❌ Lỗi: '+err.message,'error');
+    } finally {
+      cb.disabled = false;
+    }
+  };
+  $$('[data-email]').forEach(cb => cb.onchange = () => toggleOrder(cb, 'email'));
+  $$('[data-process]').forEach(cb => cb.onchange = () => toggleOrder(cb, 'process'));
 };
 
 // ═══════════ CHECKLIST PAGE (overview) ═══════════
