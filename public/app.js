@@ -17,11 +17,12 @@ const handle = async r => {
   }
   return r.json();
 };
+const NO_CACHE = { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } };
 const api = {
-  get: u => fetch(u).then(handle),
-  post: (u,b) => fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})}).then(handle),
-  put:  (u,b) => fetch(u,{method:'PUT', headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})}).then(handle),
-  del:  u => fetch(u,{method:'DELETE'}).then(handle)
+  get: u => fetch(u, NO_CACHE).then(handle),
+  post: (u,b) => fetch(u,{method:'POST',headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify(b||{}),cache:'no-store'}).then(handle),
+  put:  (u,b) => fetch(u,{method:'PUT', headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify(b||{}),cache:'no-store'}).then(handle),
+  del:  u => fetch(u,{method:'DELETE',cache:'no-store'}).then(handle)
 };
 // Helper: disable button khi đang chạy async, re-enable sau khi xong
 // Usage: btn.onclick = withLoading(async () => { ... });
@@ -717,18 +718,37 @@ const renderInfoTab = (c) => {
 };
 
 // ═══════════ EMAILS PAGE (toàn hệ thống) ═══════════
-let emailFilters = { status:'', email_type:'' };
+let emailFilters = { status:'', email_type:'', search:'' };
+let emailSort = { field: 'scheduled_date', dir: 'asc' };
 routes.emails = async () => {
   $('#pageTitle').textContent = 'Lịch Email';
   const params = new URLSearchParams();
   if (emailFilters.status) params.set('status', emailFilters.status);
   if (emailFilters.email_type) params.set('email_type', emailFilters.email_type);
-  const list = await api.get('/api/emails' + (params.toString()?'?'+params:''));
+  const rawList = await api.get('/api/emails' + (params.toString()?'?'+params:''));
+
+  // Client-side search filter
+  let list = rawList;
+  if (emailFilters.search) {
+    const q = emailFilters.search.toLowerCase();
+    list = list.filter(e => (e.full_name+' '+(e.subject||'')+' '+(e.receiver||'')+' '+(e.receiver_label||'')+' '+(e.milestone||'')).toLowerCase().includes(q));
+  }
+  // Sort
+  list = [...list].sort((a, b) => {
+    let av = a[emailSort.field], bv = b[emailSort.field];
+    if (typeof av === 'string') { av = (av||'').toLowerCase(); bv = (bv||'').toLowerCase(); }
+    if (av < bv) return emailSort.dir === 'asc' ? -1 : 1;
+    if (av > bv) return emailSort.dir === 'asc' ? 1 : -1;
+    return 0;
+  });
 
   const chip = (k, v, label) => `<span class="filter-chip px-3 py-1 rounded-full text-xs font-semibold cursor-pointer ${emailFilters[k]===v?'bg-indigo-100 text-indigo-700 border border-indigo-300':'bg-slate-100 text-slate-700'}" data-${k}="${v}">${label}</span>`;
+  const ico = f => emailSort.field !== f ? '<span class="opacity-30">↕</span>' : emailSort.dir==='asc' ? '<span class="text-indigo-600">↑</span>' : '<span class="text-indigo-600">↓</span>';
+  const th = (f, l, extra='') => `<th class="text-left px-5 py-3 cursor-pointer hover:bg-slate-100 select-none whitespace-nowrap ${extra}" data-esort="${f}">${l} ${ico(f)}</th>`;
 
   $('#content').innerHTML = `
     <div class="bg-white rounded-xl border border-slate-200 p-3 mb-4 flex gap-2 flex-wrap items-center">
+      <input id="emailSearch" type="text" class="field-input flex-1 min-w-[200px] max-w-md" placeholder="🔍 Tìm theo tên ứng viên / tiêu đề / người nhận / mốc..." value="${escapeHtml(emailFilters.search)}"/>
       <span class="text-xs font-semibold text-slate-500">Trạng thái:</span>
       ${chip('status','','Tất cả')} ${chip('status','pending','Pending')} ${chip('status','sent','Sent')} ${chip('status','failed','Failed')}
       <span class="w-3"></span>
@@ -736,12 +756,14 @@ routes.emails = async () => {
       ${chip('email_type','','Tất cả')} ${chip('email_type','candidate','👤 Ứng viên')} ${chip('email_type','department','🏢 Bộ phận')}
     </div>
     <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-      ${list.length===0?'<div class="p-10 text-center text-slate-400">Không có email</div>':`
+      ${list.length===0?'<div class="p-10 text-center text-slate-400">Không có email khớp filter</div>':(() => {
+        const pg = paginate(list, 'emails');
+        return `
       <table class="w-full text-sm">
         <thead class="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-600">
-          <tr><th class="text-left px-5 py-3 whitespace-nowrap" style="min-width:90px">Mốc</th><th class="text-left px-5 py-3 whitespace-nowrap" style="min-width:140px">Loại</th><th class="text-left px-5 py-3">Gửi tới</th><th class="text-left px-5 py-3">Liên quan UV</th><th class="text-left px-5 py-3">Tiêu đề</th><th class="text-left px-5 py-3 whitespace-nowrap">Lịch gửi</th><th class="text-left px-5 py-3 whitespace-nowrap">Trạng thái</th><th></th></tr>
+          <tr>${th('milestone','Mốc','" style="min-width:90px')}${th('email_type','Loại','" style="min-width:140px')}${th('receiver','Gửi tới')}${th('full_name','Liên quan UV')}${th('subject','Tiêu đề')}${th('scheduled_date','Lịch gửi')}${th('status','Trạng thái')}<th></th></tr>
         </thead>
-        <tbody class="divide-y divide-slate-100">${list.map(e => `
+        <tbody class="divide-y divide-slate-100">${pg.slice.map(e => `
           <tr>
             <td class="px-5 py-3 whitespace-nowrap"><span class="ms-badge ${msClass(e.milestone)}">${e.milestone}</span></td>
             <td class="px-5 py-3 whitespace-nowrap">${e.email_type==='department'?'🏢 Bộ phận':'👤 Ứng viên'}</td>
@@ -752,11 +774,27 @@ routes.emails = async () => {
             <td class="px-5 py-3"><span class="ms-badge st-${e.status}">${e.status}</span>${e.error?'<div class="text-xs text-red-600 mt-1">'+escapeHtml(e.error)+'</div>':''}</td>
             <td class="px-5 py-3 text-right"><button class="btn btn-secondary btn-sm" data-prev="${e.id}">Preview</button> ${e.sent?'':'<button class="btn btn-primary btn-sm" data-send="'+e.id+'">Gửi ngay</button>'}</td>
           </tr>`).join('')}</tbody>
-      </table>`}
+      </table>
+      ${renderPagination('emails', pg)}`;
+      })()}
     </div>
   `;
-  $$('[data-status]').forEach(c => c.onclick = () => { emailFilters.status = c.dataset.status; render(); });
-  $$('[data-email_type]').forEach(c => c.onclick = () => { emailFilters.email_type = c.dataset.email_type; render(); });
+
+  // Search debounced
+  let searchTimer;
+  $('#emailSearch') && ($('#emailSearch').oninput = e => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => { emailFilters.search = e.target.value; setPage('emails', 0); render(); }, 200);
+  });
+  // Sort
+  $$('th[data-esort]').forEach(h => h.onclick = () => {
+    const f = h.dataset.esort;
+    if (emailSort.field === f) emailSort.dir = emailSort.dir === 'asc' ? 'desc' : 'asc';
+    else { emailSort.field = f; emailSort.dir = 'asc'; }
+    setPage('emails', 0); render();
+  });
+  $$('[data-status]').forEach(c => c.onclick = () => { emailFilters.status = c.dataset.status; setPage('emails', 0); render(); });
+  $$('[data-email_type]').forEach(c => c.onclick = () => { emailFilters.email_type = c.dataset.email_type; setPage('emails', 0); render(); });
   $$('[data-prev]').forEach(b => b.onclick = () => previewEmail(b.dataset.prev));
   $$('[data-send]').forEach(b => b.onclick = withLoading(async function () {
     const ok = await showConfirm({
