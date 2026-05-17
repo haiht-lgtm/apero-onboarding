@@ -139,8 +139,7 @@ apero-onboarding/
 │   ├── index.html         — Tailwind + sidebar layout
 │   ├── app.js             — SPA, 9 page, hash router
 │   └── style.css          — Custom CSS
-├── server-v2.js           — Local dev entry (Express)
-├── server.js              — Legacy SQLite version (npm run start:legacy)
+├── server.js              — Local dev entry (Express)
 ├── vercel.json            — Rewrites + cron config
 ├── package.json
 ├── .env.example
