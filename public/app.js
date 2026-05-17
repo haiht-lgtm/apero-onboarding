@@ -183,36 +183,111 @@ routes.dashboard = async () => {
 };
 
 // ═══════════ CANDIDATES ═══════════
+let candidatesFilter = { search: '', status: 'all' }; // status: all | upcoming | active | done
 routes.candidates = async (id, tab) => {
   if (id) return renderCandidateDetail(id, tab);
   $('#pageTitle').textContent = 'Quản lý Ứng Viên';
   $('#topActions').innerHTML = `<button class="btn btn-primary" id="btnAdd">+ Thêm Ứng Viên</button>`;
   $('#btnAdd').onclick = () => openCandidateModal();
-  const list = await api.get('/api/candidates');
+  const all = await api.get('/api/candidates');
+
+  // Count theo status
+  const counts = { all: all.length, upcoming: 0, active: 0, done: 0 };
+  const today = todayStr();
+  for (const c of all) {
+    const diff = Math.round((new Date(today) - new Date(c.start_date))/86400000);
+    if (diff < 0) counts.upcoming++;
+    else if (diff <= 60) counts.active++;
+    else counts.done++;
+  }
+
+  // Filter
+  const filtered = all.filter(c => {
+    // Search
+    if (candidatesFilter.search) {
+      const q = candidatesFilter.search.toLowerCase();
+      const fields = [c.full_name, c.personal_email, c.job_title, c.department, c.manager_name].join(' ').toLowerCase();
+      if (!fields.includes(q)) return false;
+    }
+    // Status
+    if (candidatesFilter.status !== 'all') {
+      const diff = Math.round((new Date(today) - new Date(c.start_date))/86400000);
+      if (candidatesFilter.status === 'upcoming' && diff >= 0) return false;
+      if (candidatesFilter.status === 'active' && (diff < 0 || diff > 60)) return false;
+      if (candidatesFilter.status === 'done' && diff <= 60) return false;
+    }
+    return true;
+  });
+
+  const chip = (key, label, count, color = 'bg-slate-100 text-slate-700') => {
+    const active = candidatesFilter.status === key;
+    const cls = active ? 'bg-indigo-100 text-indigo-700 border-indigo-300' : color + ' border-transparent';
+    return `<button class="status-chip border-2 px-3 py-1 rounded-full text-xs font-semibold cursor-pointer ${cls}" data-status="${key}">${label} <span class="ml-1 ${active?'opacity-100':'opacity-60'}">${count}</span></button>`;
+  };
+
   $('#content').innerHTML = `
+    <div class="bg-white rounded-xl border border-slate-200 p-3 mb-4 flex gap-3 flex-wrap items-center">
+      <div class="relative flex-1 min-w-[220px] max-w-md">
+        <input id="searchInput" type="text" placeholder="🔍 Tìm theo tên, email, vị trí, đơn vị..." class="field-input pl-3" value="${escapeHtml(candidatesFilter.search)}"/>
+      </div>
+      <div class="flex gap-2 flex-wrap">
+        ${chip('all','Tất cả', counts.all)}
+        ${chip('upcoming','Sắp onboard', counts.upcoming, 'bg-blue-50 text-blue-700')}
+        ${chip('active','Đang onboard', counts.active, 'bg-purple-50 text-purple-700')}
+        ${chip('done','Hoàn thành', counts.done, 'bg-green-50 text-green-700')}
+      </div>
+    </div>
+
     <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-      ${list.length===0 ? '<div class="p-10 text-center text-slate-400">Chưa có ứng viên nào</div>' : `
+      ${filtered.length === 0 ? `<div class="p-10 text-center text-slate-400">${all.length === 0 ? 'Chưa có ứng viên nào' : 'Không có ứng viên khớp filter'}</div>` : `
       <table class="w-full text-sm">
         <thead class="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-600">
-          <tr><th class="text-left px-5 py-3">Họ tên</th><th class="text-left px-5 py-3">Chức danh</th><th class="text-left px-5 py-3">Cấp bậc</th><th class="text-left px-5 py-3">Đơn vị</th><th class="text-left px-5 py-3">Ngày đi làm</th><th class="text-left px-5 py-3">Trạng thái</th><th class="text-left px-5 py-3">Tiến độ</th><th></th></tr>
+          <tr>
+            <th class="text-left px-4 py-3">Họ tên</th>
+            <th class="text-left px-4 py-3">Vị trí</th>
+            <th class="text-left px-4 py-3">Đơn vị</th>
+            <th class="text-left px-4 py-3">Ngày đi làm</th>
+            <th class="text-left px-4 py-3">Trạng thái</th>
+            <th class="text-left px-4 py-3">Email gửi</th>
+            <th class="text-left px-4 py-3">Checklist</th>
+            <th></th>
+          </tr>
         </thead>
-        <tbody class="divide-y divide-slate-100">${list.map(c => {
+        <tbody class="divide-y divide-slate-100">${filtered.map(c => {
           const pct = c.total_tasks ? Math.round(c.done_tasks/c.total_tasks*100) : 0;
+          const emailPct = c.total_emails ? Math.round(c.sent_emails/c.total_emails*100) : 0;
+          const emailColor = c.sent_emails === c.total_emails ? 'text-green-600' : c.sent_emails > 0 ? 'text-amber-600' : 'text-slate-500';
           const st = candidateStatus(c.start_date);
-          return `<tr>
-            <td class="px-5 py-3"><div class="flex items-center gap-3"><div class="avatar">${initials(c.full_name)}</div><div><div class="font-semibold">${escapeHtml(c.full_name)}</div><div class="text-xs text-slate-500">${escapeHtml(c.personal_email)}</div></div></div></td>
-            <td class="px-5 py-3">${escapeHtml(c.job_title||'-')}</td>
-            <td class="px-5 py-3">${escapeHtml(c.level||'-')}</td>
-            <td class="px-5 py-3">${escapeHtml(c.department||'-')}</td>
-            <td class="px-5 py-3">${fmt(c.start_date)}</td>
-            <td class="px-5 py-3"><span class="px-2 py-0.5 rounded-full text-xs font-semibold ${st.cls}">${st.label}</span></td>
-            <td class="px-5 py-3" style="min-width:160px"><div class="progress"><div class="progress-bar" style="width:${pct}%"></div></div><div class="text-xs text-slate-500 mt-1">${c.done_tasks}/${c.total_tasks} (${pct}%)</div></td>
-            <td class="px-5 py-3 text-right"><button class="btn btn-secondary btn-sm" data-view="${c.id}">Xem</button> <button class="btn btn-danger btn-sm" data-del="${c.id}">Xoá</button></td>
+          return `<tr class="hover:bg-slate-50">
+            <td class="px-4 py-3"><div class="flex items-center gap-3"><div class="avatar">${initials(c.full_name)}</div><div><div class="font-semibold">${escapeHtml(c.full_name)}</div><div class="text-xs text-slate-500">${escapeHtml(c.personal_email)}</div></div></div></td>
+            <td class="px-4 py-3"><div class="text-sm">${escapeHtml(c.job_title||'-')}</div><div class="text-xs text-slate-500">${escapeHtml(c.level||'')}</div></td>
+            <td class="px-4 py-3">${escapeHtml(c.department||'-')}</td>
+            <td class="px-4 py-3 font-semibold">${fmt(c.start_date)}</td>
+            <td class="px-4 py-3"><span class="px-2 py-0.5 rounded-full text-xs font-semibold ${st.cls}">${st.label}</span></td>
+            <td class="px-4 py-3"><div class="flex items-center gap-2"><span class="font-bold ${emailColor}">${c.sent_emails}/${c.total_emails}</span><div class="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden min-w-[40px]"><div class="h-full bg-green-500" style="width:${emailPct}%"></div></div></div></td>
+            <td class="px-4 py-3" style="min-width:120px"><div class="flex items-center gap-2"><span class="font-bold text-slate-700">${c.done_tasks}/${c.total_tasks}</span><div class="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden min-w-[40px]"><div class="h-full bg-indigo-500" style="width:${pct}%"></div></div></div></td>
+            <td class="px-4 py-3 text-right whitespace-nowrap"><button class="btn btn-secondary btn-sm" data-view="${c.id}">Xem</button> <button class="btn btn-danger btn-sm" data-del="${c.id}">Xoá</button></td>
           </tr>`;
         }).join('')}</tbody>
       </table>`}
     </div>
   `;
+
+  // Search input (debounce 200ms)
+  let searchTimer;
+  $('#searchInput').oninput = e => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      candidatesFilter.search = e.target.value;
+      render();
+    }, 200);
+  };
+  // Status chips
+  $$('.status-chip').forEach(ch => ch.onclick = () => {
+    candidatesFilter.status = ch.dataset.status;
+    render();
+  });
+
   $$('[data-view]').forEach(b => b.onclick = () => navigate('candidates', { id:b.dataset.view }));
   $$('[data-del]').forEach(b => b.onclick = withLoading(async function () {
     const ok = await showConfirm({
