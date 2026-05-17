@@ -215,7 +215,14 @@ routes.candidates = async (id, tab) => {
   `;
   $$('[data-view]').forEach(b => b.onclick = () => navigate('candidates', { id:b.dataset.view }));
   $$('[data-del]').forEach(b => b.onclick = withLoading(async function () {
-    if (!confirm('Xoá ứng viên này? (kèm email + order + checklist + follow-up)')) return;
+    const ok = await showConfirm({
+      title: 'Xoá ứng viên?',
+      message: 'Xoá ứng viên này sẽ xoá kèm theo: 8 email, 5 order, 44 checklist và 25 câu follow-up.\n\nHành động này KHÔNG thể hoàn tác.',
+      icon: '🗑️',
+      okLabel: 'Xoá ứng viên',
+      danger: true
+    });
+    if (!ok) return;
     await api.del('/api/candidates/'+this.dataset.del);
     toast('Đã xoá','success'); render();
   }, 'Đang xoá...'));
@@ -325,7 +332,13 @@ const renderEmailsTab = async (cid) => {
 
   $$('[data-prev]').forEach(b => b.onclick = () => previewEmail(b.dataset.prev));
   $$('[data-send]').forEach(b => b.onclick = withLoading(async function () {
-    if (!confirm('Gửi email ngay?')) return;
+    const ok = await showConfirm({
+      title: 'Gửi email ngay?',
+      message: 'Email sẽ được gửi qua SMTP đã cấu hình. Bạn có chắc?',
+      icon: '✉️',
+      okLabel: 'Gửi ngay'
+    });
+    if (!ok) return;
     const r = await api.post(`/api/emails/${this.dataset.send}/send`);
     if (r.error) toast('❌ '+r.error,'error'); else { toast('✅ Đã gửi','success'); renderEmailsTab(cid); }
   }, 'Đang gửi...'));
@@ -515,7 +528,13 @@ routes.emails = async () => {
   $$('[data-email_type]').forEach(c => c.onclick = () => { emailFilters.email_type = c.dataset.email_type; render(); });
   $$('[data-prev]').forEach(b => b.onclick = () => previewEmail(b.dataset.prev));
   $$('[data-send]').forEach(b => b.onclick = withLoading(async function () {
-    if (!confirm('Gửi email ngay?')) return;
+    const ok = await showConfirm({
+      title: 'Gửi email ngay?',
+      message: 'Email sẽ được gửi qua SMTP đã cấu hình. Bạn có chắc?',
+      icon: '✉️',
+      okLabel: 'Gửi ngay'
+    });
+    if (!ok) return;
     const r = await api.post(`/api/emails/${this.dataset.send}/send`);
     if (r.error) toast('❌ '+r.error,'error'); else { toast('✅ Đã gửi','success'); render(); }
   }, 'Đang gửi...'));
@@ -639,7 +658,14 @@ routes.templates = async () => {
   $('#pageTitle').textContent = 'Mẫu Email';
   $('#topActions').innerHTML = `<button class="btn btn-secondary" id="btnResetAll">↺ Reset tất cả về mặc định</button>`;
   $('#btnResetAll').onclick = withLoading(async () => {
-    if (!confirm('Reset TẤT CẢ 7 mẫu email về mặc định? Các sửa đổi của bạn sẽ mất.')) return;
+    const ok = await showConfirm({
+      title: 'Reset tất cả templates?',
+      message: 'Khôi phục TẤT CẢ 8 mẫu email về mặc định.\n\nMọi chỉnh sửa custom của bạn sẽ bị mất.',
+      icon: '↺',
+      okLabel: 'Reset tất cả',
+      danger: true
+    });
+    if (!ok) return;
     await api.post('/api/email-templates/reset-all');
     toast('✅ Đã reset 7 templates','success'); render();
   }, 'Đang reset...');
@@ -714,7 +740,14 @@ const openTemplateEditor = async (key) => {
       if (!data.subject || !data.body) { toast('Nhập đủ subject + body','error'); return false; }
       const r = await api.put('/api/email-templates/'+key, data);
       if (r.error) { toast(r.error,'error'); return false; }
-      if (confirm(`Đã lưu template ${key} ✅\n\nÁp dụng template mới cho TẤT CẢ email pending của ${key}?\n(không ảnh hưởng email đã gửi)`)) {
+      const apply = await showConfirm({
+        title: `Đã lưu ${key} ✅`,
+        message: `Áp dụng template mới cho TẤT CẢ email pending của ${key}?\n(không ảnh hưởng email đã gửi)`,
+        icon: '🔄',
+        okLabel: 'Áp dụng pending',
+        cancelLabel: 'Chỉ áp dụng ứng viên mới'
+      });
+      if (apply) {
         const ar = await api.post('/api/email-templates/'+key+'/apply-pending');
         if (ar.ok) toast(`✅ Đã update ${ar.updated} email pending`,'success');
         else toast('Lỗi: '+(ar.error||''),'error');
@@ -732,7 +765,14 @@ const openTemplateEditor = async (key) => {
     $('#t_preview_box').style.display = '';
   }, 'Đang preview...');
   $('#t_reset').onclick = withLoading(async () => {
-    if (!confirm('Khôi phục template gốc cho ' + key + '?')) return;
+    const ok = await showConfirm({
+      title: `Reset template ${key}?`,
+      message: `Khôi phục về nội dung gốc của ${key}. Mọi chỉnh sửa custom sẽ mất.`,
+      icon: '↺',
+      okLabel: 'Reset',
+      danger: true
+    });
+    if (!ok) return;
     const r = await api.post('/api/email-templates/'+key+'/reset');
     $('#t_subject').value = r.subject;
     $('#t_body').value = r.body;
@@ -871,6 +911,46 @@ routes.settings = async () => {
 };
 
 // ═══════════ MODAL ═══════════
+// Modal confirm thay thế cho native confirm() — trả Promise<bool>
+const showConfirm = ({ title = 'Xác nhận', message, icon = '⚠️', okLabel = 'Đồng ý', cancelLabel = 'Hủy', danger = false } = {}) => {
+  return new Promise(resolve => {
+    const root = $('#modalRoot');
+    const okClass = danger
+      ? 'bg-red-600 hover:bg-red-700 text-white'
+      : 'bg-indigo-600 hover:bg-indigo-700 text-white';
+    root.innerHTML = `
+      <div class="modal-overlay">
+        <div class="modal" style="max-width:440px">
+          <div class="p-5">
+            <div class="flex gap-4 items-start mb-4">
+              <div class="w-12 h-12 rounded-full grid place-items-center text-2xl ${danger ? 'bg-red-100' : 'bg-amber-100'} flex-shrink-0">${icon}</div>
+              <div class="flex-1">
+                <h3 class="font-bold text-lg m-0 mb-1 text-slate-900">${escapeHtml(title)}</h3>
+                <div class="text-sm text-slate-600 whitespace-pre-line">${escapeHtml(message)}</div>
+              </div>
+            </div>
+          </div>
+          <div class="px-5 py-3 border-t border-slate-200 bg-slate-50 flex justify-end gap-2">
+            <button class="btn btn-secondary" id="confirmCancel">${escapeHtml(cancelLabel)}</button>
+            <button class="btn px-4 py-2 rounded-lg font-semibold ${okClass}" id="confirmOk">${escapeHtml(okLabel)}</button>
+          </div>
+        </div>
+      </div>`;
+    const done = (val) => { root.innerHTML = ''; document.removeEventListener('keydown', onKey); resolve(val); };
+    const onKey = (e) => {
+      if (e.key === 'Escape') done(false);
+      if (e.key === 'Enter') done(true);
+    };
+    document.addEventListener('keydown', onKey);
+    $('#confirmCancel').onclick = () => done(false);
+    $('#confirmOk').onclick = () => done(true);
+    // Click backdrop → cancel
+    $('.modal-overlay').onclick = (e) => { if (e.target === e.currentTarget) done(false); };
+    // Auto focus OK button
+    setTimeout(() => $('#confirmOk')?.focus(), 50);
+  });
+};
+
 const showModal = ({ title, body, okLabel='Lưu', onOk, lg }) => {
   const root = $('#modalRoot');
   root.innerHTML = `
