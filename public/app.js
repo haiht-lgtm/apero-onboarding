@@ -82,6 +82,51 @@ const toast = (msg, type='') => {
   $('#toastRoot').appendChild(el);
   setTimeout(() => el.remove(), 2800);
 };
+// ═══════════ PAGINATION HELPER ═══════════
+const PAGE_SIZE = 20;
+const pageState = {}; // key → page number
+const getPage = key => pageState[key] || 0;
+const setPage = (key, p) => { pageState[key] = Math.max(0, p); };
+const paginate = (items, key) => {
+  const page = getPage(key);
+  const total = items.length;
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const safePage = Math.min(page, pages - 1);
+  if (safePage !== page) setPage(key, safePage);
+  const start = safePage * PAGE_SIZE;
+  return {
+    slice: items.slice(start, start + PAGE_SIZE),
+    page: safePage, pages, total,
+    from: total === 0 ? 0 : start + 1,
+    to: Math.min(start + PAGE_SIZE, total)
+  };
+};
+const renderPagination = (key, p) => {
+  if (p.pages <= 1) return `<div class="px-4 py-2 text-xs text-slate-500 bg-slate-50 border-t border-slate-200">${p.total} items</div>`;
+  return `<div class="px-4 py-3 flex items-center gap-2 border-t border-slate-200 bg-slate-50 flex-wrap">
+    <span class="text-xs text-slate-500">Hiển thị <b>${p.from}-${p.to}</b> / ${p.total}</span>
+    <div class="flex-1"></div>
+    <button class="btn btn-sm btn-secondary" data-pg-key="${key}" data-pg="first" ${p.page===0?'disabled':''}>«</button>
+    <button class="btn btn-sm btn-secondary" data-pg-key="${key}" data-pg="prev" ${p.page===0?'disabled':''}>← Trước</button>
+    <span class="text-sm font-semibold px-2">Trang ${p.page+1}/${p.pages}</span>
+    <button class="btn btn-sm btn-secondary" data-pg-key="${key}" data-pg="next" ${p.page>=p.pages-1?'disabled':''}>Sau →</button>
+    <button class="btn btn-sm btn-secondary" data-pg-key="${key}" data-pg="last" ${p.page>=p.pages-1?'disabled':''}>»</button>
+  </div>`;
+};
+// Wire pagination buttons (global delegation)
+document.addEventListener('click', e => {
+  const btn = e.target.closest('[data-pg]');
+  if (!btn) return;
+  const key = btn.dataset.pgKey;
+  const action = btn.dataset.pg;
+  const cur = getPage(key);
+  if (action === 'first') setPage(key, 0);
+  else if (action === 'prev') setPage(key, cur - 1);
+  else if (action === 'next') setPage(key, cur + 1);
+  else if (action === 'last') setPage(key, 99999);
+  render();
+});
+
 const candidateStatus = sd => {
   const diff = Math.round((new Date(todayStr()) - new Date(sd))/86400000);
   if (diff < 0) return { label:'Sắp onboard', cls:'bg-blue-100 text-blue-700' };
@@ -329,7 +374,9 @@ routes.candidates = async (id, tab) => {
     </div>
 
     <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-      ${filtered.length === 0 ? `<div class="p-10 text-center text-slate-400">${all.length === 0 ? 'Chưa có ứng viên nào' : 'Không có ứng viên khớp filter'}</div>` : `
+      ${filtered.length === 0 ? `<div class="p-10 text-center text-slate-400">${all.length === 0 ? 'Chưa có ứng viên nào' : 'Không có ứng viên khớp filter'}</div>` : (() => {
+        const pg = paginate(filtered, 'candidates');
+        return `
       <div class="px-4 py-2 bg-slate-50 border-b border-slate-200 text-xs text-slate-500">Hiển thị <b>${filtered.length}</b> / ${all.length} ứng viên</div>
       <table class="w-full text-sm">
         <thead class="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-600">
@@ -344,7 +391,7 @@ routes.candidates = async (id, tab) => {
             <th></th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-100">${filtered.map(c => {
+        <tbody class="divide-y divide-slate-100">${pg.slice.map(c => {
           const pct = c.total_tasks ? Math.round(c.done_tasks/c.total_tasks*100) : 0;
           const emailPct = c.total_emails ? Math.round(c.sent_emails/c.total_emails*100) : 0;
           const emailColor = c.sent_emails === c.total_emails ? 'text-green-600' : c.sent_emails > 0 ? 'text-amber-600' : 'text-slate-500';
@@ -360,7 +407,9 @@ routes.candidates = async (id, tab) => {
             <td class="px-4 py-3 text-right whitespace-nowrap"><button class="btn btn-secondary btn-sm" data-view="${c.id}">Xem</button> <button class="btn btn-danger btn-sm" data-del="${c.id}">Xoá</button></td>
           </tr>`;
         }).join('')}</tbody>
-      </table>`}
+      </table>
+      ${renderPagination('candidates', pg)}`;
+      })()}
     </div>
   `;
 
