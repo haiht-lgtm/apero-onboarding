@@ -827,9 +827,14 @@ routes.settings = async () => {
   $('#btnTest').onclick = async () => {
     const to = $('#testTo').value.trim();
     if (!to) return toast('Nhập email nhận test','error');
-    await save();
-    const r = await api.post('/api/settings/test-email', { to });
-    if (r.error) toast('❌ '+r.error,'error'); else toast('✅ Đã gửi test','success');
+    // Gửi SMTP từ form trực tiếp — không cần Lưu trước
+    const body = { to };
+    ['smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from_name','smtp_from_email','email_signature'].forEach(k => {
+      const el = $('#'+k); if (el && el.value) body[k] = el.value;
+    });
+    toast('Đang gửi...','');
+    const r = await api.post('/api/settings/test-email', body);
+    if (r.error) toast('❌ '+r.error,'error'); else toast('✅ Đã gửi test tới '+to,'success');
   };
 };
 
