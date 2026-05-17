@@ -879,16 +879,24 @@ routes.orders = async () => {
       })()}
     </div>
 
-    ${Object.keys(orderPending).length > 0 ? `
-    <div class="fixed bottom-6 right-6 bg-white border-2 border-indigo-500 rounded-xl shadow-2xl p-4 flex items-center gap-3 z-40">
+    <div id="orderSaveBar" class="${Object.keys(orderPending).length > 0 ? '' : 'hidden'} fixed bottom-6 right-6 bg-white border-2 border-indigo-500 rounded-xl shadow-2xl p-4 flex items-center gap-3 z-40">
       <div>
-        <div class="font-bold text-slate-900">${Object.keys(orderPending).length} order có thay đổi chưa lưu</div>
+        <div class="font-bold text-slate-900"><span id="orderPendingCount">${Object.keys(orderPending).length}</span> order có thay đổi chưa lưu</div>
         <div class="text-xs text-slate-500">Bấm Save All để gửi 1 lần lên server</div>
       </div>
       <button id="orderSaveBtn" class="btn px-4 py-2 rounded-lg font-semibold bg-indigo-600 hover:bg-indigo-700 text-white">💾 Save All</button>
       <button id="orderDiscardBtn" class="btn px-3 py-2 rounded-lg btn-secondary">↶ Hủy</button>
-    </div>` : ''}
+    </div>
   `;
+
+  // Update DOM tại chỗ (KHÔNG refetch API)
+  const updateOrderSaveBar = () => {
+    const count = Object.keys(orderPending).length;
+    const bar = $('#orderSaveBar');
+    const cnt = $('#orderPendingCount');
+    if (cnt) cnt.textContent = count;
+    if (bar) bar.classList.toggle('hidden', count === 0);
+  };
   // Search debounced
   let oTimer;
   $('#orderSearch') && ($('#orderSearch').oninput = e => {
@@ -905,7 +913,7 @@ routes.orders = async () => {
   $$('[data-status]').forEach(c => c.onclick = () => { orderFilter.status = c.dataset.status; setPage('orders', 0); render(); });
   $$('[data-cid]').forEach(b => b.onclick = () => navigate('candidates', { id:b.dataset.cid, tab:'orders' }));
 
-  // Checkbox onchange → track vào orderPending, KHÔNG call API
+  // Checkbox onchange → track vào orderPending, CHỈ update DOM tại chỗ (không refetch)
   $$('input[type="checkbox"][data-id][data-field]').forEach(cb => {
     cb.onchange = () => {
       const id = cb.dataset.id;
@@ -915,7 +923,6 @@ routes.orders = async () => {
       const origVal = orig[field] ? 1 : 0;
       const newVal = cb.checked ? 1 : 0;
       if (newVal === origVal) {
-        // Quay về giá trị gốc → bỏ khỏi pending
         if (orderPending[id]) {
           delete orderPending[id][field];
           if (Object.keys(orderPending[id]).length === 0) delete orderPending[id];
@@ -924,7 +931,11 @@ routes.orders = async () => {
         if (!orderPending[id]) orderPending[id] = {};
         orderPending[id][field] = newVal;
       }
-      render();
+      // Update row dirty highlight
+      const row = cb.closest('tr');
+      if (row) row.classList.toggle('bg-amber-50', !!orderPending[id]);
+      // Update save bar (chỉ DOM, không refetch)
+      updateOrderSaveBar();
     };
   });
 
@@ -939,7 +950,7 @@ routes.orders = async () => {
     render();
   }, 'Đang lưu...'));
 
-  // Discard button
+  // Discard button — revert checkboxes về giá trị gốc, KHÔNG refetch
   $('#orderDiscardBtn') && ($('#orderDiscardBtn').onclick = async () => {
     const ok = await showConfirm({
       title: 'Hủy thay đổi?',
@@ -949,8 +960,19 @@ routes.orders = async () => {
       cancelLabel: 'Tiếp tục sửa'
     });
     if (!ok) return;
+    // Revert UI: reset checkboxes về giá trị orig, xóa highlight
+    Object.keys(orderPending).forEach(id => {
+      const orig = list.find(o => o.id === id);
+      if (!orig) return;
+      ['email_sent','processed'].forEach(field => {
+        const cb = $(`input[data-id="${id}"][data-field="${field}"]`);
+        if (cb) cb.checked = !!orig[field];
+      });
+      const row = $(`input[data-id="${id}"]`)?.closest('tr');
+      if (row) row.classList.remove('bg-amber-50');
+    });
     orderPending = {};
-    render();
+    updateOrderSaveBar();
   });
 };
 
