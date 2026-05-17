@@ -119,6 +119,8 @@ document.addEventListener('click', e => {
 $('#todayLabel').textContent = new Date().toLocaleDateString('vi-VN');
 
 // ═══════════ DASHBOARD ═══════════
+let dashSort = { field: 'start_date', dir: 'asc' };
+let dashSearch = '';
 routes.dashboard = async () => {
   $('#pageTitle').textContent = 'Dashboard';
   const s = await api.get('/api/dashboard/stats');
@@ -157,16 +159,36 @@ routes.dashboard = async () => {
     </div>
 
     <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-      <div class="px-5 py-3 border-b border-slate-200 flex justify-between items-center">
-        <h2 class="font-bold text-slate-900">Sắp onboard 7 ngày tới</h2>
+      <div class="px-5 py-3 border-b border-slate-200 flex justify-between items-center gap-3 flex-wrap">
+        <h2 class="font-bold text-slate-900 m-0">Sắp onboard 7 ngày tới</h2>
+        <div class="flex items-center gap-2 flex-1 max-w-md">
+          <input id="dashSearch" type="text" class="field-input flex-1" placeholder="🔍 Tìm theo tên / đơn vị..." value="${escapeHtml(dashSearch)}"/>
+        </div>
         <span class="text-xs text-slate-500">${s.upcoming.length} ứng viên</span>
       </div>
-      ${s.upcoming.length === 0 ? '<div class="p-8 text-center text-slate-400">Chưa có ứng viên nào</div>' : `
-        <table class="w-full text-sm">
+      ${(() => {
+        let items = s.upcoming;
+        // Search
+        if (dashSearch) {
+          const q = dashSearch.toLowerCase();
+          items = items.filter(c => (c.full_name+' '+(c.job_title||'')+' '+(c.department||'')).toLowerCase().includes(q));
+        }
+        // Sort
+        items = [...items].sort((a, b) => {
+          let av = a[dashSort.field], bv = b[dashSort.field];
+          if (typeof av === 'string') { av = (av||'').toLowerCase(); bv = (bv||'').toLowerCase(); }
+          if (av < bv) return dashSort.dir === 'asc' ? -1 : 1;
+          if (av > bv) return dashSort.dir === 'asc' ? 1 : -1;
+          return 0;
+        });
+        const ico = f => dashSort.field !== f ? '<span class="opacity-30">↕</span>' : dashSort.dir==='asc' ? '<span class="text-indigo-600">↑</span>' : '<span class="text-indigo-600">↓</span>';
+        const th = (f, l) => `<th class="text-left px-5 py-3 cursor-pointer hover:bg-slate-100 select-none" data-dsort="${f}">${l} ${ico(f)}</th>`;
+        if (items.length === 0) return '<div class="p-8 text-center text-slate-400">Không có ứng viên</div>';
+        return `<table class="w-full text-sm">
           <thead class="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-600">
-            <tr><th class="text-left px-5 py-3">Họ tên</th><th class="text-left px-5 py-3">Đơn vị</th><th class="text-left px-5 py-3">Ngày đi làm</th><th class="text-left px-5 py-3">Tiến độ</th><th></th></tr>
+            <tr>${th('full_name','Họ tên')}${th('department','Đơn vị')}${th('start_date','Ngày đi làm')}${th('done_tasks','Tiến độ')}<th></th></tr>
           </thead>
-          <tbody class="divide-y divide-slate-100">${s.upcoming.map(c => {
+          <tbody class="divide-y divide-slate-100">${items.map(c => {
             const pct = c.total_tasks ? Math.round(c.done_tasks/c.total_tasks*100) : 0;
             return `<tr>
               <td class="px-5 py-3"><div class="flex items-center gap-3"><div class="avatar">${initials(c.full_name)}</div><div><div class="font-semibold text-slate-900">${escapeHtml(c.full_name)}</div><div class="text-xs text-slate-500">${escapeHtml(c.job_title||'')}</div></div></div></td>
@@ -176,47 +198,72 @@ routes.dashboard = async () => {
               <td class="px-5 py-3"><button class="btn btn-secondary btn-sm" data-cid="${c.id}">Xem</button></td>
             </tr>`;
           }).join('')}</tbody>
-        </table>`}
+        </table>`;
+      })()}
     </div>
   `;
+  // Dashboard search + sort handlers
+  let dashTimer;
+  $('#dashSearch') && ($('#dashSearch').oninput = e => {
+    clearTimeout(dashTimer);
+    dashTimer = setTimeout(() => { dashSearch = e.target.value; render(); }, 200);
+  });
+  $$('th[data-dsort]').forEach(h => h.onclick = () => {
+    const f = h.dataset.dsort;
+    if (dashSort.field === f) dashSort.dir = dashSort.dir === 'asc' ? 'desc' : 'asc';
+    else { dashSort.field = f; dashSort.dir = 'asc'; }
+    render();
+  });
   $$('[data-cid]').forEach(b => b.onclick = () => navigate('candidates', { id:b.dataset.cid }));
 };
 
 // ═══════════ CANDIDATES ═══════════
-let candidatesFilter = { search: '', status: 'all' }; // status: all | upcoming | active | done
+let candidatesFilter = { search: '', status: 'all', department: 'all' };
+let candidatesSort = { field: 'start_date', dir: 'desc' };
 routes.candidates = async (id, tab) => {
   if (id) return renderCandidateDetail(id, tab);
   $('#pageTitle').textContent = 'Quản lý Ứng Viên';
   $('#topActions').innerHTML = `<button class="btn btn-primary" id="btnAdd">+ Thêm Ứng Viên</button>`;
   $('#btnAdd').onclick = () => openCandidateModal();
   const all = await api.get('/api/candidates');
+  const today = todayStr();
 
   // Count theo status
   const counts = { all: all.length, upcoming: 0, active: 0, done: 0 };
-  const today = todayStr();
   for (const c of all) {
     const diff = Math.round((new Date(today) - new Date(c.start_date))/86400000);
     if (diff < 0) counts.upcoming++;
     else if (diff <= 60) counts.active++;
     else counts.done++;
   }
+  // List unique departments
+  const departments = [...new Set(all.map(c => c.department).filter(Boolean))].sort();
 
   // Filter
-  const filtered = all.filter(c => {
-    // Search
+  let filtered = all.filter(c => {
     if (candidatesFilter.search) {
       const q = candidatesFilter.search.toLowerCase();
       const fields = [c.full_name, c.personal_email, c.job_title, c.department, c.manager_name].join(' ').toLowerCase();
       if (!fields.includes(q)) return false;
     }
-    // Status
     if (candidatesFilter.status !== 'all') {
       const diff = Math.round((new Date(today) - new Date(c.start_date))/86400000);
       if (candidatesFilter.status === 'upcoming' && diff >= 0) return false;
       if (candidatesFilter.status === 'active' && (diff < 0 || diff > 60)) return false;
       if (candidatesFilter.status === 'done' && diff <= 60) return false;
     }
+    if (candidatesFilter.department !== 'all' && c.department !== candidatesFilter.department) return false;
     return true;
+  });
+
+  // Sort
+  filtered.sort((a, b) => {
+    const fld = candidatesSort.field;
+    let av = a[fld], bv = b[fld];
+    if (typeof av === 'string') { av = (av || '').toLowerCase(); bv = (bv || '').toLowerCase(); }
+    if (av < bv) return candidatesSort.dir === 'asc' ? -1 : 1;
+    if (av > bv) return candidatesSort.dir === 'asc' ? 1 : -1;
+    return 0;
   });
 
   const chip = (key, label, count, color = 'bg-slate-100 text-slate-700') => {
@@ -225,11 +272,22 @@ routes.candidates = async (id, tab) => {
     return `<button class="status-chip border-2 px-3 py-1 rounded-full text-xs font-semibold cursor-pointer ${cls}" data-status="${key}">${label} <span class="ml-1 ${active?'opacity-100':'opacity-60'}">${count}</span></button>`;
   };
 
+  // Sortable header helper
+  const sortIcon = (field) => {
+    if (candidatesSort.field !== field) return '<span class="opacity-30">↕</span>';
+    return candidatesSort.dir === 'asc' ? '<span class="text-indigo-600">↑</span>' : '<span class="text-indigo-600">↓</span>';
+  };
+  const th = (field, label) => `<th class="text-left px-4 py-3 cursor-pointer hover:bg-slate-100 select-none" data-sort="${field}">${label} ${sortIcon(field)}</th>`;
+
   $('#content').innerHTML = `
     <div class="bg-white rounded-xl border border-slate-200 p-3 mb-4 flex gap-3 flex-wrap items-center">
       <div class="relative flex-1 min-w-[220px] max-w-md">
         <input id="searchInput" type="text" placeholder="🔍 Tìm theo tên, email, vị trí, đơn vị..." class="field-input pl-3" value="${escapeHtml(candidatesFilter.search)}"/>
       </div>
+      <select id="deptSelect" class="field-input" style="max-width:200px">
+        <option value="all">Tất cả đơn vị</option>
+        ${departments.map(d => `<option value="${escapeHtml(d)}" ${candidatesFilter.department===d?'selected':''}>${escapeHtml(d)}</option>`).join('')}
+      </select>
       <div class="flex gap-2 flex-wrap">
         ${chip('all','Tất cả', counts.all)}
         ${chip('upcoming','Sắp onboard', counts.upcoming, 'bg-blue-50 text-blue-700')}
@@ -240,16 +298,17 @@ routes.candidates = async (id, tab) => {
 
     <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
       ${filtered.length === 0 ? `<div class="p-10 text-center text-slate-400">${all.length === 0 ? 'Chưa có ứng viên nào' : 'Không có ứng viên khớp filter'}</div>` : `
+      <div class="px-4 py-2 bg-slate-50 border-b border-slate-200 text-xs text-slate-500">Hiển thị <b>${filtered.length}</b> / ${all.length} ứng viên</div>
       <table class="w-full text-sm">
         <thead class="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-600">
           <tr>
-            <th class="text-left px-4 py-3">Họ tên</th>
-            <th class="text-left px-4 py-3">Vị trí</th>
-            <th class="text-left px-4 py-3">Đơn vị</th>
-            <th class="text-left px-4 py-3">Ngày đi làm</th>
+            ${th('full_name','Họ tên')}
+            ${th('job_title','Vị trí')}
+            ${th('department','Đơn vị')}
+            ${th('start_date','Ngày đi làm')}
             <th class="text-left px-4 py-3">Trạng thái</th>
-            <th class="text-left px-4 py-3">Email gửi</th>
-            <th class="text-left px-4 py-3">Checklist</th>
+            ${th('sent_emails','Email gửi')}
+            ${th('done_tasks','Checklist')}
             <th></th>
           </tr>
         </thead>
@@ -285,6 +344,22 @@ routes.candidates = async (id, tab) => {
   // Status chips
   $$('.status-chip').forEach(ch => ch.onclick = () => {
     candidatesFilter.status = ch.dataset.status;
+    render();
+  });
+  // Department select
+  $('#deptSelect').onchange = e => {
+    candidatesFilter.department = e.target.value;
+    render();
+  };
+  // Sortable headers
+  $$('th[data-sort]').forEach(h => h.onclick = () => {
+    const f = h.dataset.sort;
+    if (candidatesSort.field === f) {
+      candidatesSort.dir = candidatesSort.dir === 'asc' ? 'desc' : 'asc';
+    } else {
+      candidatesSort.field = f;
+      candidatesSort.dir = 'asc';
+    }
     render();
   });
 
