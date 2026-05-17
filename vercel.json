@@ -5,6 +5,14 @@
     { "source": "/healthz", "destination": "/api/[...path]" },
     { "source": "/((?!api/|_next/|.*\\.).*)", "destination": "/index.html" }
   ],
+  "functions": {
+    "api/[...path].js": {
+      "maxDuration": 30
+    },
+    "api/cron/daily.js": {
+      "maxDuration": 60
+    }
+  },
   "crons": [
     {
       "path": "/api/cron/daily",
