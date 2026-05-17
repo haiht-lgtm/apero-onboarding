@@ -23,6 +23,29 @@ const api = {
   put:  (u,b) => fetch(u,{method:'PUT', headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})}).then(handle),
   del:  u => fetch(u,{method:'DELETE'}).then(handle)
 };
+// Helper: disable button khi đang chạy async, re-enable sau khi xong
+// Usage: btn.onclick = withLoading(async () => { ... });
+const withLoading = (fn, loadingText = 'Đang xử lý...') => async function (e) {
+  const btn = (e && e.currentTarget) || this;
+  if (!btn || btn.disabled) return;
+  const originalHTML = btn.innerHTML;
+  const originalDisabled = btn.disabled;
+  btn.disabled = true;
+  btn.style.opacity = '0.6';
+  btn.style.cursor = 'wait';
+  btn.innerHTML = `<span class="inline-block">⏳</span> ${loadingText}`;
+  try {
+    return await fn.call(btn, e);
+  } catch (err) {
+    console.error('Action error:', err);
+    toast('❌ ' + (err.message || 'Lỗi'), 'error');
+  } finally {
+    btn.disabled = originalDisabled;
+    btn.style.opacity = '';
+    btn.style.cursor = '';
+    btn.innerHTML = originalHTML;
+  }
+};
 // Check session khi load, redirect /login nếu chưa đăng nhập
 (async () => {
   try {
@@ -191,11 +214,11 @@ routes.candidates = async (id, tab) => {
     </div>
   `;
   $$('[data-view]').forEach(b => b.onclick = () => navigate('candidates', { id:b.dataset.view }));
-  $$('[data-del]').forEach(b => b.onclick = async () => {
+  $$('[data-del]').forEach(b => b.onclick = withLoading(async function () {
     if (!confirm('Xoá ứng viên này? (kèm email + order + checklist + follow-up)')) return;
-    await api.del('/api/candidates/'+b.dataset.del);
+    await api.del('/api/candidates/'+this.dataset.del);
     toast('Đã xoá','success'); render();
-  });
+  }, 'Đang xoá...'));
 };
 
 const openCandidateModal = (existing) => {
@@ -301,11 +324,11 @@ const renderEmailsTab = async (cid) => {
       </div>`).join('')}</div></div>`;
 
   $$('[data-prev]').forEach(b => b.onclick = () => previewEmail(b.dataset.prev));
-  $$('[data-send]').forEach(b => b.onclick = async () => {
+  $$('[data-send]').forEach(b => b.onclick = withLoading(async function () {
     if (!confirm('Gửi email ngay?')) return;
-    const r = await api.post(`/api/emails/${b.dataset.send}/send`);
+    const r = await api.post(`/api/emails/${this.dataset.send}/send`);
     if (r.error) toast('❌ '+r.error,'error'); else { toast('✅ Đã gửi','success'); renderEmailsTab(cid); }
-  });
+  }, 'Đang gửi...'));
   $$('[data-toggle]').forEach(cb => cb.onchange = async () => {
     await api.put('/api/emails/'+cb.dataset.toggle, { sent: cb.checked?1:0 });
     toast('💾 Đã lưu','success');
@@ -441,12 +464,12 @@ const renderInfoTab = (c) => {
     </div>
     <div class="mt-5 flex gap-2"><button class="btn btn-primary" id="iSave">💾 Lưu</button></div>
   </div>`;
-  $('#iSave').onclick = async () => {
+  $('#iSave').onclick = withLoading(async () => {
     const data = {};
     ['full_name','personal_email','phone','start_date','job_title','level','department','manager_name','manager_email'].forEach(k => data[k] = $('#i_'+k).value.trim());
     const r = await api.put('/api/candidates/'+c.id, data);
     if (r.error) toast(r.error,'error'); else { toast('✅ Đã lưu','success'); render(); }
-  };
+  }, 'Đang lưu...');
 };
 
 // ═══════════ EMAILS PAGE (toàn hệ thống) ═══════════
@@ -491,11 +514,11 @@ routes.emails = async () => {
   $$('[data-status]').forEach(c => c.onclick = () => { emailFilters.status = c.dataset.status; render(); });
   $$('[data-email_type]').forEach(c => c.onclick = () => { emailFilters.email_type = c.dataset.email_type; render(); });
   $$('[data-prev]').forEach(b => b.onclick = () => previewEmail(b.dataset.prev));
-  $$('[data-send]').forEach(b => b.onclick = async () => {
+  $$('[data-send]').forEach(b => b.onclick = withLoading(async function () {
     if (!confirm('Gửi email ngay?')) return;
-    const r = await api.post(`/api/emails/${b.dataset.send}/send`);
+    const r = await api.post(`/api/emails/${this.dataset.send}/send`);
     if (r.error) toast('❌ '+r.error,'error'); else { toast('✅ Đã gửi','success'); render(); }
-  });
+  }, 'Đang gửi...'));
 };
 
 // ═══════════ ORDERS PAGE (toàn hệ thống) ═══════════
@@ -615,11 +638,11 @@ routes.followup = async () => {
 routes.templates = async () => {
   $('#pageTitle').textContent = 'Mẫu Email';
   $('#topActions').innerHTML = `<button class="btn btn-secondary" id="btnResetAll">↺ Reset tất cả về mặc định</button>`;
-  $('#btnResetAll').onclick = async () => {
+  $('#btnResetAll').onclick = withLoading(async () => {
     if (!confirm('Reset TẤT CẢ 7 mẫu email về mặc định? Các sửa đổi của bạn sẽ mất.')) return;
     await api.post('/api/email-templates/reset-all');
     toast('✅ Đã reset 7 templates','success'); render();
-  };
+  }, 'Đang reset...');
 
   const list = await api.get('/api/email-templates');
   $('#content').innerHTML = `
@@ -702,20 +725,20 @@ const openTemplateEditor = async (key) => {
     }
   });
 
-  $('#t_preview').onclick = async () => {
+  $('#t_preview').onclick = withLoading(async () => {
     const r = await api.post('/api/email-templates/'+key+'/preview', { subject:$('#t_subject').value, body:$('#t_body').value });
     $('#t_preview_subject').value = r.subject;
     $('#t_preview_body').textContent = r.body;
     $('#t_preview_box').style.display = '';
-  };
-  $('#t_reset').onclick = async () => {
+  }, 'Đang preview...');
+  $('#t_reset').onclick = withLoading(async () => {
     if (!confirm('Khôi phục template gốc cho ' + key + '?')) return;
     const r = await api.post('/api/email-templates/'+key+'/reset');
     $('#t_subject').value = r.subject;
     $('#t_body').value = r.body;
     $('#t_offset').value = r.day_offset;
     toast('↺ Đã khôi phục mặc định','success');
-  };
+  }, 'Đang reset...');
 };
 
 // ═══════════ DOCS PAGE ═══════════
@@ -800,7 +823,10 @@ routes.settings = async () => {
     await api.put('/api/settings', data);
     toast('✅ Đã lưu','success');
   };
-  $('#btnSave1').onclick = save; $('#btnSave2').onclick = save; $('#btnSave3').onclick = save;
+  const saveWrapped = withLoading(save, 'Đang lưu...');
+  $('#btnSave1').onclick = saveWrapped;
+  $('#btnSave2').onclick = saveWrapped;
+  $('#btnSave3').onclick = saveWrapped;
   // Toggle hiện/ẩn password
   $$('.toggle-pwd').forEach(btn => {
     btn.onclick = () => {
@@ -809,7 +835,7 @@ routes.settings = async () => {
       inp.type = inp.type === 'password' ? 'text' : 'password';
     };
   });
-  $('#btnTest').onclick = async () => {
+  $('#btnTest').onclick = withLoading(async () => {
     const to = $('#testTo').value.trim();
     if (!to) return toast('Nhập email nhận test','error');
     // Gửi SMTP từ form trực tiếp — không cần Lưu trước
@@ -817,10 +843,9 @@ routes.settings = async () => {
     ['smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from_name','smtp_from_email','email_signature'].forEach(k => {
       const el = $('#'+k); if (el && el.value) body[k] = el.value;
     });
-    toast('Đang gửi...','');
     const r = await api.post('/api/settings/test-email', body);
     if (r.error) toast('❌ '+r.error,'error'); else toast('✅ Đã gửi test tới '+to,'success');
-  };
+  }, 'Đang gửi mail...');
 };
 
 // ═══════════ MODAL ═══════════
@@ -839,7 +864,7 @@ const showModal = ({ title, body, okLabel='Lưu', onOk, lg }) => {
     </div>`;
   const close = () => root.innerHTML = '';
   $('#mClose').onclick = close; $('#mCancel').onclick = close;
-  if (okLabel) $('#mOk').onclick = async () => { const ok = await onOk(); if (ok !== false) close(); };
+  if (okLabel) $('#mOk').onclick = withLoading(async () => { const ok = await onOk(); if (ok !== false) close(); }, 'Đang xử lý...');
 };
 
 // ═══════════ BOOT ═══════════
