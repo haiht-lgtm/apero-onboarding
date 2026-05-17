@@ -810,17 +810,38 @@ routes.emails = async () => {
 };
 
 // ═══════════ ORDERS PAGE (toàn hệ thống) ═══════════
-let orderFilter = { receiver:'', status:'pending' };
+let orderFilter = { receiver:'', status:'pending', search:'' };
+let orderSort = { field: 'deadline', dir: 'asc' };
 routes.orders = async () => {
   $('#pageTitle').textContent = 'Order Bộ Phận';
   const params = new URLSearchParams();
   if (orderFilter.receiver) params.set('receiver', orderFilter.receiver);
   if (orderFilter.status) params.set('status', orderFilter.status);
-  const list = await api.get('/api/orders' + (params.toString()?'?'+params:''));
+  let list = await api.get('/api/orders' + (params.toString()?'?'+params:''));
+
+  // Search
+  if (orderFilter.search) {
+    const q = orderFilter.search.toLowerCase();
+    list = list.filter(o => (o.full_name+' '+o.order_type+' '+(o.receiver||'')+' '+(o.content||'')+' '+(o.milestone||'')).toLowerCase().includes(q));
+  }
+  // Sort
+  list = [...list].sort((a, b) => {
+    let av = a[orderSort.field], bv = b[orderSort.field];
+    if (typeof av === 'string') { av = (av||'').toLowerCase(); bv = (bv||'').toLowerCase(); }
+    if (av == null) av = '';
+    if (bv == null) bv = '';
+    if (av < bv) return orderSort.dir === 'asc' ? -1 : 1;
+    if (av > bv) return orderSort.dir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
   const chip = (k, v, label) => `<span class="filter-chip px-3 py-1 rounded-full text-xs font-semibold cursor-pointer ${orderFilter[k]===v?'bg-indigo-100 text-indigo-700 border border-indigo-300':'bg-slate-100 text-slate-700'}" data-${k}="${v}">${label}</span>`;
+  const ico = f => orderSort.field !== f ? '<span class="opacity-30">↕</span>' : orderSort.dir==='asc' ? '<span class="text-indigo-600">↑</span>' : '<span class="text-indigo-600">↓</span>';
+  const th = (f, l) => `<th class="text-left px-5 py-3 cursor-pointer hover:bg-slate-100 select-none whitespace-nowrap" data-osort="${f}">${l} ${ico(f)}</th>`;
 
   $('#content').innerHTML = `
     <div class="bg-white rounded-xl border border-slate-200 p-3 mb-4 flex gap-2 flex-wrap items-center">
+      <input id="orderSearch" type="text" class="field-input flex-1 min-w-[200px] max-w-md" placeholder="🔍 Tìm theo tên / order / mốc..." value="${escapeHtml(orderFilter.search)}"/>
       <span class="text-xs font-semibold text-slate-500">Bộ phận:</span>
       ${chip('receiver','','Tất cả')} ${chip('receiver','HCNS','HCNS')} ${chip('receiver','MyNTH','MyNTH (IT)')} ${chip('receiver','HùngNX','HùngNX (IT)')} ${chip('receiver','PhươngHT','PhươngHT (C&B)')}
       <span class="w-3"></span>
@@ -828,26 +849,42 @@ routes.orders = async () => {
       ${chip('status','','Tất cả')} ${chip('status','pending','⏳ Chờ xử lý')} ${chip('status','processed','✅ Đã xử lý')}
     </div>
     <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-      ${list.length===0?'<div class="p-10 text-center text-slate-400">Không có order</div>':`
+      ${list.length===0?'<div class="p-10 text-center text-slate-400">Không có order khớp filter</div>':(() => {
+        const pg = paginate(list, 'orders');
+        return `
       <table class="w-full text-sm">
         <thead class="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-600">
-          <tr><th class="text-left px-5 py-3">Mốc</th><th class="text-left px-5 py-3">Order</th><th class="text-left px-5 py-3">Người phụ trách</th><th class="text-left px-5 py-3">Ứng viên</th><th class="text-left px-5 py-3">Hạn</th><th class="text-left px-5 py-3">Email gửi</th><th class="text-left px-5 py-3">Đã xử lý</th></tr>
+          <tr>${th('milestone','Mốc')}${th('order_type','Order')}${th('receiver','Người phụ trách')}${th('full_name','Ứng viên')}${th('deadline','Hạn')}<th class="text-left px-5 py-3 whitespace-nowrap">Email gửi</th><th class="text-left px-5 py-3 whitespace-nowrap">Đã xử lý</th></tr>
         </thead>
-        <tbody class="divide-y divide-slate-100">${list.map(o => `
+        <tbody class="divide-y divide-slate-100">${pg.slice.map(o => `
           <tr>
-            <td class="px-5 py-3"><span class="ms-badge ${msClass(o.milestone)}">${o.milestone}</span></td>
+            <td class="px-5 py-3 whitespace-nowrap"><span class="ms-badge ${msClass(o.milestone)}">${o.milestone}</span></td>
             <td class="px-5 py-3"><div class="font-semibold">${escapeHtml(o.order_type)}</div><div class="text-xs text-slate-500">${escapeHtml(o.content||'')}</div></td>
             <td class="px-5 py-3">${escapeHtml(o.receiver)}</td>
-            <td class="px-5 py-3"><a class="text-indigo-600 hover:underline" data-cid="${o.candidate_id}">${escapeHtml(o.full_name)}</a></td>
-            <td class="px-5 py-3 ${o.deadline<todayStr() && !o.processed ?'text-red-600 font-semibold':''}">${fmt(o.deadline)}</td>
+            <td class="px-5 py-3"><a class="text-indigo-600 hover:underline cursor-pointer" data-cid="${o.candidate_id}">${escapeHtml(o.full_name)}</a></td>
+            <td class="px-5 py-3 whitespace-nowrap ${o.deadline<todayStr() && !o.processed ?'text-red-600 font-semibold':''}">${fmt(o.deadline)}</td>
             <td class="px-5 py-3"><label class="inline-flex items-center gap-2"><input type="checkbox" data-email="${o.id}" ${o.email_sent?'checked':''}/> ${o.email_sent_date?'<span class="text-xs text-slate-500">'+fmtDT(o.email_sent_date)+'</span>':''}</label></td>
             <td class="px-5 py-3"><label class="inline-flex items-center gap-2"><input type="checkbox" data-process="${o.id}" ${o.processed?'checked':''}/> ${o.processed_date?'<span class="text-xs text-slate-500">'+fmtDT(o.processed_date)+'</span>':''}</label></td>
           </tr>`).join('')}</tbody>
-      </table>`}
+      </table>
+      ${renderPagination('orders', pg)}`;
+      })()}
     </div>
   `;
-  $$('[data-receiver]').forEach(c => c.onclick = () => { orderFilter.receiver = c.dataset.receiver; render(); });
-  $$('[data-status]').forEach(c => c.onclick = () => { orderFilter.status = c.dataset.status; render(); });
+  // Search debounced
+  let oTimer;
+  $('#orderSearch') && ($('#orderSearch').oninput = e => {
+    clearTimeout(oTimer);
+    oTimer = setTimeout(() => { orderFilter.search = e.target.value; setPage('orders', 0); render(); }, 200);
+  });
+  $$('th[data-osort]').forEach(h => h.onclick = () => {
+    const f = h.dataset.osort;
+    if (orderSort.field === f) orderSort.dir = orderSort.dir === 'asc' ? 'desc' : 'asc';
+    else { orderSort.field = f; orderSort.dir = 'asc'; }
+    setPage('orders', 0); render();
+  });
+  $$('[data-receiver]').forEach(c => c.onclick = () => { orderFilter.receiver = c.dataset.receiver; setPage('orders', 0); render(); });
+  $$('[data-status]').forEach(c => c.onclick = () => { orderFilter.status = c.dataset.status; setPage('orders', 0); render(); });
   $$('[data-cid]').forEach(b => b.onclick = () => navigate('candidates', { id:b.dataset.cid, tab:'orders' }));
   // Toggle checkbox với error handling rõ ràng + disable trong khi save
   const toggleOrder = async (cb, field) => {
@@ -875,6 +912,8 @@ routes.orders = async () => {
 
 // ═══════════ CHECKLIST PAGE (overview) ═══════════
 let checklistFilter = 'pending'; // 'all' | 'overdue' | 'today' | 'pending' | 'done' | 'skipped'
+let checklistSearch = '';
+let checklistSort = { field: 'deadline', dir: 'asc' };
 routes.checklist = async () => {
   $('#pageTitle').textContent = 'Checklist tổng hợp';
   const cands = await api.get('/api/candidates');
@@ -895,20 +934,33 @@ routes.checklist = async () => {
       else if (it.deadline === today) counts.today++;
     }
   }
-  // Lọc theo filter
-  const items = all.filter(it => {
+  // Lọc theo status filter
+  let items = all.filter(it => {
     if (checklistFilter === 'all') return true;
     if (checklistFilter === 'skipped') return it.is_skipped;
     if (it.is_skipped) return false;
     if (checklistFilter === 'done') return it.is_done;
-    if (it.is_done) return false; // còn lại chỉ là pending
+    if (it.is_done) return false;
     if (checklistFilter === 'pending') return true;
     if (checklistFilter === 'overdue') return it.deadline < today;
     if (checklistFilter === 'today') return it.deadline === today;
     return false;
   });
-  // Sort theo deadline
-  items.sort((a, b) => (a.deadline || '').localeCompare(b.deadline || ''));
+  // Search
+  if (checklistSearch) {
+    const q = checklistSearch.toLowerCase();
+    items = items.filter(it => (it.candidate.full_name+' '+it.task_name+' '+it.assignee+' '+it.milestone+' '+(it.candidate.department||'')).toLowerCase().includes(q));
+  }
+  // Sort
+  items = [...items].sort((a, b) => {
+    let av, bv;
+    if (checklistSort.field === 'candidate') { av = a.candidate.full_name; bv = b.candidate.full_name; }
+    else { av = a[checklistSort.field]; bv = b[checklistSort.field]; }
+    if (typeof av === 'string') { av = (av||'').toLowerCase(); bv = (bv||'').toLowerCase(); }
+    if (av < bv) return checklistSort.dir === 'asc' ? -1 : 1;
+    if (av > bv) return checklistSort.dir === 'asc' ? 1 : -1;
+    return 0;
+  });
 
   const chip = (key, label, count, color = 'bg-slate-100 text-slate-700') => {
     const active = checklistFilter === key;
@@ -926,8 +978,12 @@ routes.checklist = async () => {
     <td class="px-3 py-3">${it.is_skipped?'<span class="text-slate-400">Đã xóa</span>':it.is_done?'<span class="text-green-600">✓ Done</span>':it.deadline<today?'<span class="text-red-600">Quá hạn</span>':it.deadline===today?'<span class="text-amber-600">Hôm nay</span>':'<span class="text-slate-500">Sắp tới</span>'}</td>
   </tr>`;
 
+  const ico = f => checklistSort.field !== f ? '<span class="opacity-30">↕</span>' : checklistSort.dir==='asc' ? '<span class="text-indigo-600">↑</span>' : '<span class="text-indigo-600">↓</span>';
+  const sth = (f, l) => `<th class="text-left px-3 py-3 cursor-pointer hover:bg-slate-100 select-none whitespace-nowrap" data-csort="${f}">${l} ${ico(f)}</th>`;
+
   $('#content').innerHTML = `
     <div class="bg-white rounded-xl border border-slate-200 p-4 mb-4 flex gap-2 flex-wrap items-center">
+      <input id="checklistSearch" type="text" class="field-input flex-1 min-w-[200px] max-w-md" placeholder="🔍 Tìm theo ứng viên / việc / mốc..." value="${escapeHtml(checklistSearch)}"/>
       <span class="text-xs font-semibold text-slate-500 mr-2">Lọc:</span>
       ${chip('all','Tất cả', counts.all)}
       ${chip('pending','Chưa làm', counts.pending, 'bg-blue-50 text-blue-700')}
@@ -950,26 +1006,45 @@ routes.checklist = async () => {
     <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
       ${items.length === 0
         ? '<div class="p-12 text-center text-slate-400">Không có item nào</div>'
-        : `<table class="w-full text-sm">
+        : (() => {
+            const pg = paginate(items, 'checklist');
+            return `<table class="w-full text-sm">
             <thead class="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-600">
               <tr>
                 <th class="px-3 py-3 w-10"><input type="checkbox" id="checkAll" class="w-4 h-4 cursor-pointer"/></th>
-                <th class="text-left px-3 py-3">Ứng viên</th>
-                <th class="text-left px-3 py-3">Mốc</th>
-                <th class="text-left px-3 py-3">Việc</th>
-                <th class="text-left px-3 py-3">Phụ trách</th>
-                <th class="text-left px-3 py-3">Hạn</th>
+                ${sth('candidate','Ứng viên')}
+                ${sth('milestone','Mốc')}
+                ${sth('task_name','Việc')}
+                ${sth('assignee','Phụ trách')}
+                ${sth('deadline','Hạn')}
                 <th class="text-left px-3 py-3">Trạng thái</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-100">${items.map(renderRow).join('')}</tbody>
-          </table>`}
+            <tbody class="divide-y divide-slate-100">${pg.slice.map(renderRow).join('')}</tbody>
+          </table>
+          ${renderPagination('checklist', pg)}`;
+        })()}
     </div>
   `;
+
+  // Search debounced
+  let cTimer;
+  $('#checklistSearch') && ($('#checklistSearch').oninput = e => {
+    clearTimeout(cTimer);
+    cTimer = setTimeout(() => { checklistSearch = e.target.value; setPage('checklist', 0); render(); }, 200);
+  });
+  // Sortable headers
+  $$('th[data-csort]').forEach(h => h.onclick = () => {
+    const f = h.dataset.csort;
+    if (checklistSort.field === f) checklistSort.dir = checklistSort.dir === 'asc' ? 'desc' : 'asc';
+    else { checklistSort.field = f; checklistSort.dir = 'asc'; }
+    setPage('checklist', 0); render();
+  });
 
   // Filter chip click
   $$('.filter-chip').forEach(ch => ch.onclick = () => {
     checklistFilter = ch.dataset.filter;
+    setPage('checklist', 0);
     render();
   });
 
