@@ -804,7 +804,7 @@ routes.settings = async () => {
       <div class="mt-4"><button class="btn btn-primary" id="btnSave2">💾 Lưu email bộ phận</button></div>
     </div>
 
-    <div class="bg-white rounded-xl border border-slate-200 p-5">
+    <div class="bg-white rounded-xl border border-slate-200 p-5 mb-5">
       <h2 class="font-bold text-slate-900 mb-4">Email Signature & Công ty</h2>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         ${fld('company_name','Tên công ty', s.company_name, 'APERO Technologies Group')}
@@ -813,6 +813,28 @@ routes.settings = async () => {
         <textarea id="email_signature" class="field-input" style="min-height:90px;font-family:inherit">${escapeHtml(s.email_signature||'')}</textarea>
       </div>
       <div class="mt-4"><button class="btn btn-primary" id="btnSave3">💾 Lưu</button></div>
+    </div>
+
+    <div class="bg-white rounded-xl border border-slate-200 p-5">
+      <h2 class="font-bold text-slate-900 mb-1">Quản lý nâng cao</h2>
+      <p class="text-sm text-slate-500 mb-4">Truy cập nhanh các trang quản lý chi tiết</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        ${[
+          { route:'emails',    icon:'✉️',  label:'Lịch Email',         desc:'Toàn bộ 8 email theo ứng viên' },
+          { route:'orders',    icon:'📦',  label:'Order Bộ Phận',      desc:'Tracking 5 order/ứng viên' },
+          { route:'checklist', icon:'✅',  label:'Checklist',           desc:'44 đầu việc HR phải làm' },
+          { route:'followup',  icon:'❓',  label:'Câu hỏi Follow-up',   desc:'25 câu hỏi tracking sau onboard' },
+          { route:'templates', icon:'📝',  label:'Mẫu Email',           desc:'Sửa subject/body 8 templates' },
+          { route:'docs',      icon:'📁',  label:'Tài Liệu & Link',    desc:'Forms, Drive, Discord, nhân sự' }
+        ].map(m => `<button data-route="${m.route}" class="text-left bg-slate-50 hover:bg-indigo-50 hover:border-indigo-300 border border-slate-200 rounded-lg p-4 flex items-center gap-3 transition cursor-pointer">
+          <span class="text-2xl">${m.icon}</span>
+          <div class="flex-1 min-w-0">
+            <div class="font-semibold text-slate-900">${m.label}</div>
+            <div class="text-xs text-slate-500">${m.desc}</div>
+          </div>
+          <span class="text-slate-400">→</span>
+        </button>`).join('')}
+      </div>
     </div>
   `;
   const save = async () => {
