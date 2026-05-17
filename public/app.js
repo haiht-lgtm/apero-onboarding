@@ -772,6 +772,7 @@ routes.settings = async () => {
   $('#pageTitle').textContent = 'Cài Đặt';
   const s = await api.get('/api/settings');
   const fld = (id, label, value, ph='', type='text') => `<div><label class="field-label">${label}</label><input id="${id}" type="${type}" class="field-input" value="${escapeHtml(value||'')}" placeholder="${escapeHtml(ph)}"/></div>`;
+  const fldPwd = (id, label, value, ph='') => `<div><label class="field-label">${label}</label><div class="relative"><input id="${id}" type="password" class="field-input pr-10" value="${escapeHtml(value||'')}" placeholder="${escapeHtml(ph)}"/><button type="button" class="toggle-pwd absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700" data-target="${id}" tabindex="-1" title="Hiện/ẩn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>`;
 
   $('#content').innerHTML = `
     <div class="bg-white rounded-xl border border-slate-200 p-5 mb-5">
@@ -780,7 +781,7 @@ routes.settings = async () => {
         ${fld('smtp_host','SMTP Host', s.smtp_host, 'smtp.gmail.com')}
         ${fld('smtp_port','SMTP Port', s.smtp_port, '587')}
         ${fld('smtp_user','SMTP User', s.smtp_user, 'haiht@apero.vn')}
-        ${fld('smtp_pass','SMTP Password / App Password', s.smtp_pass, '', 'password')}
+        ${fldPwd('smtp_pass','SMTP Password / App Password', s.smtp_pass, 'App Password 16 ký tự (có/không space đều OK)')}
         ${fld('smtp_from_name','From Name', s.smtp_from_name, 'APERO HR')}
         ${fld('smtp_from_email','From Email', s.smtp_from_email, 'haiht@apero.vn')}
       </div>
@@ -824,6 +825,14 @@ routes.settings = async () => {
     toast('✅ Đã lưu','success');
   };
   $('#btnSave1').onclick = save; $('#btnSave2').onclick = save; $('#btnSave3').onclick = save;
+  // Toggle hiện/ẩn password
+  $$('.toggle-pwd').forEach(btn => {
+    btn.onclick = () => {
+      const inp = $('#' + btn.dataset.target);
+      if (!inp) return;
+      inp.type = inp.type === 'password' ? 'text' : 'password';
+    };
+  });
   $('#btnTest').onclick = async () => {
     const to = $('#testTo').value.trim();
     if (!to) return toast('Nhập email nhận test','error');
