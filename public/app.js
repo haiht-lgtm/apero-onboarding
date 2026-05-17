@@ -658,12 +658,12 @@ routes.emails = async () => {
       ${list.length===0?'<div class="p-10 text-center text-slate-400">Không có email</div>':`
       <table class="w-full text-sm">
         <thead class="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-600">
-          <tr><th class="text-left px-5 py-3">Mốc</th><th class="text-left px-5 py-3">Loại</th><th class="text-left px-5 py-3">Gửi tới</th><th class="text-left px-5 py-3">Liên quan UV</th><th class="text-left px-5 py-3">Tiêu đề</th><th class="text-left px-5 py-3">Lịch gửi</th><th class="text-left px-5 py-3">Trạng thái</th><th></th></tr>
+          <tr><th class="text-left px-5 py-3 whitespace-nowrap" style="min-width:90px">Mốc</th><th class="text-left px-5 py-3 whitespace-nowrap" style="min-width:140px">Loại</th><th class="text-left px-5 py-3">Gửi tới</th><th class="text-left px-5 py-3">Liên quan UV</th><th class="text-left px-5 py-3">Tiêu đề</th><th class="text-left px-5 py-3 whitespace-nowrap">Lịch gửi</th><th class="text-left px-5 py-3 whitespace-nowrap">Trạng thái</th><th></th></tr>
         </thead>
         <tbody class="divide-y divide-slate-100">${list.map(e => `
           <tr>
-            <td class="px-5 py-3"><span class="ms-badge ${msClass(e.milestone)}">${e.milestone}</span></td>
-            <td class="px-5 py-3">${e.email_type==='department'?'🏢 Bộ phận':'👤 Ứng viên'}</td>
+            <td class="px-5 py-3 whitespace-nowrap"><span class="ms-badge ${msClass(e.milestone)}">${e.milestone}</span></td>
+            <td class="px-5 py-3 whitespace-nowrap">${e.email_type==='department'?'🏢 Bộ phận':'👤 Ứng viên'}</td>
             <td class="px-5 py-3"><div class="font-medium">${escapeHtml(e.receiver_label||'')}</div><div class="text-xs text-slate-500">${escapeHtml(e.receiver||'(chưa có email)')}</div></td>
             <td class="px-5 py-3">${escapeHtml(e.full_name)}</td>
             <td class="px-5 py-3">${escapeHtml(e.subject)}</td>
