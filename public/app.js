@@ -812,6 +812,7 @@ routes.emails = async () => {
 // ═══════════ ORDERS PAGE (toàn hệ thống) ═══════════
 let orderFilter = { receiver:'', status:'pending', search:'' };
 let orderSort = { field: 'deadline', dir: 'asc' };
+let orderPending = {}; // id → { email_sent?: 0|1, processed?: 0|1 } — unsaved changes
 routes.orders = async () => {
   $('#pageTitle').textContent = 'Order Bộ Phận';
   const params = new URLSearchParams();
@@ -851,25 +852,42 @@ routes.orders = async () => {
     <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
       ${list.length===0?'<div class="p-10 text-center text-slate-400">Không có order khớp filter</div>':(() => {
         const pg = paginate(list, 'orders');
+        // Helper: effective value sau khi merge pending changes
+        const eff = (o, field) => {
+          const p = orderPending[o.id];
+          if (p && p[field] !== undefined) return p[field] ? 1 : 0;
+          return o[field] ? 1 : 0;
+        };
+        const isDirty = id => !!orderPending[id];
         return `
       <table class="w-full text-sm">
         <thead class="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-600">
           <tr>${th('milestone','Mốc')}${th('order_type','Order')}${th('receiver','Người phụ trách')}${th('full_name','Ứng viên')}${th('deadline','Hạn')}<th class="text-left px-5 py-3 whitespace-nowrap">Email gửi</th><th class="text-left px-5 py-3 whitespace-nowrap">Đã xử lý</th></tr>
         </thead>
         <tbody class="divide-y divide-slate-100">${pg.slice.map(o => `
-          <tr>
+          <tr class="${isDirty(o.id)?'bg-amber-50':''}">
             <td class="px-5 py-3 whitespace-nowrap"><span class="ms-badge ${msClass(o.milestone)}">${o.milestone}</span></td>
             <td class="px-5 py-3"><div class="font-semibold">${escapeHtml(o.order_type)}</div><div class="text-xs text-slate-500">${escapeHtml(o.content||'')}</div></td>
             <td class="px-5 py-3">${escapeHtml(o.receiver)}</td>
             <td class="px-5 py-3"><a class="text-indigo-600 hover:underline cursor-pointer" data-cid="${o.candidate_id}">${escapeHtml(o.full_name)}</a></td>
-            <td class="px-5 py-3 whitespace-nowrap ${o.deadline<todayStr() && !o.processed ?'text-red-600 font-semibold':''}">${fmt(o.deadline)}</td>
-            <td class="px-5 py-3"><label class="inline-flex items-center gap-2"><input type="checkbox" data-email="${o.id}" ${o.email_sent?'checked':''}/> ${o.email_sent_date?'<span class="text-xs text-slate-500">'+fmtDT(o.email_sent_date)+'</span>':''}</label></td>
-            <td class="px-5 py-3"><label class="inline-flex items-center gap-2"><input type="checkbox" data-process="${o.id}" ${o.processed?'checked':''}/> ${o.processed_date?'<span class="text-xs text-slate-500">'+fmtDT(o.processed_date)+'</span>':''}</label></td>
+            <td class="px-5 py-3 whitespace-nowrap ${o.deadline<todayStr() && !eff(o,'processed') ?'text-red-600 font-semibold':''}">${fmt(o.deadline)}</td>
+            <td class="px-5 py-3"><label class="inline-flex items-center gap-2"><input type="checkbox" data-id="${o.id}" data-field="email_sent" ${eff(o,'email_sent')?'checked':''}/> ${o.email_sent_date?'<span class="text-xs text-slate-500">'+fmtDT(o.email_sent_date)+'</span>':''}</label></td>
+            <td class="px-5 py-3"><label class="inline-flex items-center gap-2"><input type="checkbox" data-id="${o.id}" data-field="processed" ${eff(o,'processed')?'checked':''}/> ${o.processed_date?'<span class="text-xs text-slate-500">'+fmtDT(o.processed_date)+'</span>':''}</label></td>
           </tr>`).join('')}</tbody>
       </table>
       ${renderPagination('orders', pg)}`;
       })()}
     </div>
+
+    ${Object.keys(orderPending).length > 0 ? `
+    <div class="fixed bottom-6 right-6 bg-white border-2 border-indigo-500 rounded-xl shadow-2xl p-4 flex items-center gap-3 z-40">
+      <div>
+        <div class="font-bold text-slate-900">${Object.keys(orderPending).length} order có thay đổi chưa lưu</div>
+        <div class="text-xs text-slate-500">Bấm Save All để gửi 1 lần lên server</div>
+      </div>
+      <button id="orderSaveBtn" class="btn px-4 py-2 rounded-lg font-semibold bg-indigo-600 hover:bg-indigo-700 text-white">💾 Save All</button>
+      <button id="orderDiscardBtn" class="btn px-3 py-2 rounded-lg btn-secondary">↶ Hủy</button>
+    </div>` : ''}
   `;
   // Search debounced
   let oTimer;
@@ -886,28 +904,54 @@ routes.orders = async () => {
   $$('[data-receiver]').forEach(c => c.onclick = () => { orderFilter.receiver = c.dataset.receiver; setPage('orders', 0); render(); });
   $$('[data-status]').forEach(c => c.onclick = () => { orderFilter.status = c.dataset.status; setPage('orders', 0); render(); });
   $$('[data-cid]').forEach(b => b.onclick = () => navigate('candidates', { id:b.dataset.cid, tab:'orders' }));
-  // Toggle checkbox với error handling rõ ràng + disable trong khi save
-  const toggleOrder = async (cb, field) => {
-    const original = !cb.checked; // state cũ trước khi check
-    cb.disabled = true;
-    try {
-      const r = await api.put('/api/orders/'+cb.dataset[field], { [field === 'email' ? 'email_sent' : 'processed']: cb.checked?1:0 });
-      if (r.error) {
-        cb.checked = original; // revert
-        toast('❌ Lỗi save: '+r.error,'error');
+
+  // Checkbox onchange → track vào orderPending, KHÔNG call API
+  $$('input[type="checkbox"][data-id][data-field]').forEach(cb => {
+    cb.onchange = () => {
+      const id = cb.dataset.id;
+      const field = cb.dataset.field;
+      const orig = list.find(o => o.id === id);
+      if (!orig) return;
+      const origVal = orig[field] ? 1 : 0;
+      const newVal = cb.checked ? 1 : 0;
+      if (newVal === origVal) {
+        // Quay về giá trị gốc → bỏ khỏi pending
+        if (orderPending[id]) {
+          delete orderPending[id][field];
+          if (Object.keys(orderPending[id]).length === 0) delete orderPending[id];
+        }
       } else {
-        toast('✅ Đã lưu','success');
-        render();
+        if (!orderPending[id]) orderPending[id] = {};
+        orderPending[id][field] = newVal;
       }
-    } catch (err) {
-      cb.checked = original;
-      toast('❌ Lỗi: '+err.message,'error');
-    } finally {
-      cb.disabled = false;
-    }
-  };
-  $$('[data-email]').forEach(cb => cb.onchange = () => toggleOrder(cb, 'email'));
-  $$('[data-process]').forEach(cb => cb.onchange = () => toggleOrder(cb, 'process'));
+      render();
+    };
+  });
+
+  // Save All button
+  $('#orderSaveBtn') && ($('#orderSaveBtn').onclick = withLoading(async () => {
+    const items = Object.entries(orderPending).map(([id, changes]) => ({ id, ...changes }));
+    if (items.length === 0) return;
+    const r = await api.post('/api/orders/bulk', { items });
+    if (r.error) { toast('❌ '+r.error,'error'); return; }
+    toast(`✅ Đã lưu ${r.updated} thay đổi`,'success');
+    orderPending = {};
+    render();
+  }, 'Đang lưu...'));
+
+  // Discard button
+  $('#orderDiscardBtn') && ($('#orderDiscardBtn').onclick = async () => {
+    const ok = await showConfirm({
+      title: 'Hủy thay đổi?',
+      message: `Bỏ ${Object.keys(orderPending).length} thay đổi chưa lưu?`,
+      icon: '↶',
+      okLabel: 'Hủy thay đổi',
+      cancelLabel: 'Tiếp tục sửa'
+    });
+    if (!ok) return;
+    orderPending = {};
+    render();
+  });
 };
 
 // ═══════════ CHECKLIST PAGE (overview) ═══════════
