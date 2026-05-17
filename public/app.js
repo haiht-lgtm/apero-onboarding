@@ -585,37 +585,159 @@ routes.orders = async () => {
 };
 
 // ═══════════ CHECKLIST PAGE (overview) ═══════════
+let checklistFilter = 'pending'; // 'all' | 'overdue' | 'today' | 'pending' | 'done' | 'skipped'
 routes.checklist = async () => {
   $('#pageTitle').textContent = 'Checklist tổng hợp';
   const cands = await api.get('/api/candidates');
   const today = todayStr();
-  const overdue = [], todayItems = [];
+  const all = [];
   for (const c of cands) {
     const cs = await api.get('/api/candidates/'+c.id+'/checklist');
-    for (const it of cs) {
-      if (it.is_done) continue;
-      if (it.deadline < today) overdue.push({ ...it, candidate:c });
-      else if (it.deadline === today) todayItems.push({ ...it, candidate:c });
+    for (const it of cs) all.push({ ...it, candidate: c });
+  }
+  // Phân loại
+  const counts = { all: all.length, overdue: 0, today: 0, pending: 0, done: 0, skipped: 0 };
+  for (const it of all) {
+    if (it.is_skipped) counts.skipped++;
+    else if (it.is_done) counts.done++;
+    else {
+      counts.pending++;
+      if (it.deadline < today) counts.overdue++;
+      else if (it.deadline === today) counts.today++;
     }
   }
-  const renderRow = it => `<tr>
-    <td class="px-5 py-3"><a class="text-indigo-600 hover:underline cursor-pointer" data-cid="${it.candidate.id}">${escapeHtml(it.candidate.full_name)}</a><div class="text-xs text-slate-500">${escapeHtml(it.candidate.department||'')}</div></td>
-    <td class="px-5 py-3"><span class="ms-badge ${msClass(it.milestone)}">${it.milestone}</span></td>
-    <td class="px-5 py-3">${escapeHtml(it.task_name)}</td>
-    <td class="px-5 py-3">${escapeHtml(it.assignee)}</td>
-    <td class="px-5 py-3 ${it.deadline<today?'text-red-600 font-semibold':''}">${fmt(it.deadline)}</td>
+  // Lọc theo filter
+  const items = all.filter(it => {
+    if (checklistFilter === 'all') return true;
+    if (checklistFilter === 'skipped') return it.is_skipped;
+    if (it.is_skipped) return false;
+    if (checklistFilter === 'done') return it.is_done;
+    if (it.is_done) return false; // còn lại chỉ là pending
+    if (checklistFilter === 'pending') return true;
+    if (checklistFilter === 'overdue') return it.deadline < today;
+    if (checklistFilter === 'today') return it.deadline === today;
+    return false;
+  });
+  // Sort theo deadline
+  items.sort((a, b) => (a.deadline || '').localeCompare(b.deadline || ''));
+
+  const chip = (key, label, count, color = 'bg-slate-100 text-slate-700') => {
+    const active = checklistFilter === key;
+    const cls = active ? 'bg-indigo-100 text-indigo-700 border-indigo-300' : color + ' border-transparent';
+    return `<button class="filter-chip border-2 px-3 py-1 rounded-full text-xs font-semibold cursor-pointer ${cls}" data-filter="${key}">${label} <span class="ml-1 ${active?'opacity-100':'opacity-60'}">${count}</span></button>`;
+  };
+
+  const renderRow = it => `<tr class="${it.is_skipped?'opacity-40 line-through':''}">
+    <td class="px-3 py-3 w-10"><input type="checkbox" class="row-check w-4 h-4 cursor-pointer" data-id="${it.id}" ${it.is_done||it.is_skipped?'disabled':''}/></td>
+    <td class="px-3 py-3"><a class="text-indigo-600 hover:underline cursor-pointer" data-cid="${it.candidate.id}">${escapeHtml(it.candidate.full_name)}</a><div class="text-xs text-slate-500">${escapeHtml(it.candidate.department||'')}</div></td>
+    <td class="px-3 py-3"><span class="ms-badge ${msClass(it.milestone)}">${it.milestone}</span></td>
+    <td class="px-3 py-3">${escapeHtml(it.task_name)}</td>
+    <td class="px-3 py-3">${escapeHtml(it.assignee)}</td>
+    <td class="px-3 py-3 ${it.deadline<today&&!it.is_done&&!it.is_skipped?'text-red-600 font-semibold':''}">${fmt(it.deadline)}</td>
+    <td class="px-3 py-3">${it.is_skipped?'<span class="text-slate-400">Đã xóa</span>':it.is_done?'<span class="text-green-600">✓ Done</span>':it.deadline<today?'<span class="text-red-600">Quá hạn</span>':it.deadline===today?'<span class="text-amber-600">Hôm nay</span>':'<span class="text-slate-500">Sắp tới</span>'}</td>
   </tr>`;
+
   $('#content').innerHTML = `
-    <div class="bg-white rounded-xl border border-slate-200 mb-5 overflow-hidden">
-      <div class="px-5 py-3 border-b border-slate-200 font-bold text-red-600">⚠️ Quá hạn (${overdue.length})</div>
-      ${overdue.length===0?'<div class="p-8 text-center text-slate-400">🎉 Không có việc quá hạn</div>':`<table class="w-full text-sm"><thead class="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-600"><tr><th class="text-left px-5 py-3">Ứng viên</th><th class="text-left px-5 py-3">Mốc</th><th class="text-left px-5 py-3">Việc</th><th class="text-left px-5 py-3">Phụ trách</th><th class="text-left px-5 py-3">Hạn</th></tr></thead><tbody class="divide-y divide-slate-100">${overdue.map(renderRow).join('')}</tbody></table>`}
+    <div class="bg-white rounded-xl border border-slate-200 p-4 mb-4 flex gap-2 flex-wrap items-center">
+      <span class="text-xs font-semibold text-slate-500 mr-2">Lọc:</span>
+      ${chip('all','Tất cả', counts.all)}
+      ${chip('pending','Chưa làm', counts.pending, 'bg-blue-50 text-blue-700')}
+      ${chip('overdue','Quá hạn', counts.overdue, 'bg-red-50 text-red-700')}
+      ${chip('today','Hôm nay', counts.today, 'bg-amber-50 text-amber-700')}
+      ${chip('done','Đã xong', counts.done, 'bg-green-50 text-green-700')}
+      ${chip('skipped','Đã xóa', counts.skipped, 'bg-slate-50 text-slate-500')}
     </div>
+
+    <div id="bulkBar" class="hidden bg-indigo-50 border border-indigo-200 rounded-lg p-3 mb-4 flex items-center gap-3">
+      <span class="text-sm font-semibold text-indigo-900">Đã chọn <span id="selCount">0</span> items</span>
+      <div class="flex-1"></div>
+      <button id="bulkDone" class="btn btn-sm bg-green-600 hover:bg-green-700 text-white">✓ Đánh dấu Done</button>
+      ${checklistFilter==='skipped'
+        ? `<button id="bulkRestore" class="btn btn-sm bg-blue-600 hover:bg-blue-700 text-white">↺ Khôi phục</button>`
+        : `<button id="bulkDelete" class="btn btn-sm bg-red-600 hover:bg-red-700 text-white">🗑️ Xóa</button>`}
+      <button id="bulkCancel" class="btn btn-sm btn-secondary">Hủy chọn</button>
+    </div>
+
     <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-      <div class="px-5 py-3 border-b border-slate-200 font-bold">📌 Hôm nay (${todayItems.length})</div>
-      ${todayItems.length===0?'<div class="p-8 text-center text-slate-400">Không có việc hôm nay</div>':`<table class="w-full text-sm"><thead class="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-600"><tr><th class="text-left px-5 py-3">Ứng viên</th><th class="text-left px-5 py-3">Mốc</th><th class="text-left px-5 py-3">Việc</th><th class="text-left px-5 py-3">Phụ trách</th><th class="text-left px-5 py-3">Hạn</th></tr></thead><tbody class="divide-y divide-slate-100">${todayItems.map(renderRow).join('')}</tbody></table>`}
+      ${items.length === 0
+        ? '<div class="p-12 text-center text-slate-400">Không có item nào</div>'
+        : `<table class="w-full text-sm">
+            <thead class="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-600">
+              <tr>
+                <th class="px-3 py-3 w-10"><input type="checkbox" id="checkAll" class="w-4 h-4 cursor-pointer"/></th>
+                <th class="text-left px-3 py-3">Ứng viên</th>
+                <th class="text-left px-3 py-3">Mốc</th>
+                <th class="text-left px-3 py-3">Việc</th>
+                <th class="text-left px-3 py-3">Phụ trách</th>
+                <th class="text-left px-3 py-3">Hạn</th>
+                <th class="text-left px-3 py-3">Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">${items.map(renderRow).join('')}</tbody>
+          </table>`}
     </div>
   `;
+
+  // Filter chip click
+  $$('.filter-chip').forEach(ch => ch.onclick = () => {
+    checklistFilter = ch.dataset.filter;
+    render();
+  });
+
+  // Navigate to candidate
   $$('[data-cid]').forEach(b => b.onclick = () => navigate('candidates', { id:b.dataset.cid, tab:'checklist' }));
+
+  // Bulk selection
+  const updateBulkBar = () => {
+    const checked = $$('.row-check:checked');
+    $('#selCount').textContent = checked.length;
+    $('#bulkBar').classList.toggle('hidden', checked.length === 0);
+  };
+  $$('.row-check').forEach(cb => cb.onchange = updateBulkBar);
+  const ckAll = $('#checkAll');
+  if (ckAll) ckAll.onchange = () => {
+    $$('.row-check:not(:disabled)').forEach(cb => cb.checked = ckAll.checked);
+    updateBulkBar();
+  };
+  $('#bulkCancel') && ($('#bulkCancel').onclick = () => {
+    $$('.row-check').forEach(cb => cb.checked = false);
+    if (ckAll) ckAll.checked = false;
+    updateBulkBar();
+  });
+
+  const getSelected = () => $$('.row-check:checked').map(c => c.dataset.id);
+
+  $('#bulkDelete') && ($('#bulkDelete').onclick = withLoading(async () => {
+    const ids = getSelected();
+    if (ids.length === 0) return;
+    const ok = await showConfirm({
+      title: `Xóa ${ids.length} item?`,
+      message: 'Các item này sẽ bị ẩn khỏi danh sách. Có thể khôi phục ở tab "Đã xóa".',
+      icon: '🗑️',
+      okLabel: `Xóa ${ids.length} item`,
+      danger: true
+    });
+    if (!ok) return;
+    await api.post('/api/checklist/bulk', { ids, action: 'skip' });
+    toast(`✅ Đã xóa ${ids.length} item`, 'success');
+    render();
+  }, 'Đang xóa...'));
+
+  $('#bulkDone') && ($('#bulkDone').onclick = withLoading(async () => {
+    const ids = getSelected();
+    if (ids.length === 0) return;
+    await api.post('/api/checklist/bulk', { ids, action: 'done' });
+    toast(`✅ Đã đánh dấu ${ids.length} item là Done`, 'success');
+    render();
+  }, 'Đang xử lý...'));
+
+  $('#bulkRestore') && ($('#bulkRestore').onclick = withLoading(async () => {
+    const ids = getSelected();
+    if (ids.length === 0) return;
+    await api.post('/api/checklist/bulk', { ids, action: 'restore' });
+    toast(`✅ Đã khôi phục ${ids.length} item`, 'success');
+    render();
+  }, 'Đang xử lý...'));
 };
 
 // ═══════════ FOLLOW-UP PAGE (overview) ═══════════
