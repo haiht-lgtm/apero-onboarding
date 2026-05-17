@@ -121,6 +121,8 @@ $('#todayLabel').textContent = new Date().toLocaleDateString('vi-VN');
 // ═══════════ DASHBOARD ═══════════
 let dashSort = { field: 'start_date', dir: 'asc' };
 let dashSearch = '';
+let dashDeptFilter = 'all';
+let dashProgressFilter = 'all'; // all | none | low | high
 routes.dashboard = async () => {
   $('#pageTitle').textContent = 'Dashboard';
   const s = await api.get('/api/dashboard/stats');
@@ -159,12 +161,25 @@ routes.dashboard = async () => {
     </div>
 
     <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-      <div class="px-5 py-3 border-b border-slate-200 flex justify-between items-center gap-3 flex-wrap">
-        <h2 class="font-bold text-slate-900 m-0">Sắp onboard 7 ngày tới</h2>
-        <div class="flex items-center gap-2 flex-1 max-w-md">
-          <input id="dashSearch" type="text" class="field-input flex-1" placeholder="🔍 Tìm theo tên / đơn vị..." value="${escapeHtml(dashSearch)}"/>
+      <div class="px-5 py-3 border-b border-slate-200">
+        <div class="flex justify-between items-center gap-3 flex-wrap mb-2">
+          <h2 class="font-bold text-slate-900 m-0">Sắp onboard 7 ngày tới</h2>
+          <span class="text-xs text-slate-500">${s.upcoming.length} ứng viên</span>
         </div>
-        <span class="text-xs text-slate-500">${s.upcoming.length} ứng viên</span>
+        <div class="flex items-center gap-2 flex-wrap">
+          <input id="dashSearch" type="text" class="field-input flex-1 min-w-[180px] max-w-xs" placeholder="🔍 Tên / đơn vị / vị trí..." value="${escapeHtml(dashSearch)}"/>
+          <select id="dashDept" class="field-input" style="max-width:180px">
+            <option value="all">Tất cả đơn vị</option>
+            ${[...new Set(s.upcoming.map(c => c.department).filter(Boolean))].sort().map(d => `<option value="${escapeHtml(d)}" ${dashDeptFilter===d?'selected':''}>${escapeHtml(d)}</option>`).join('')}
+          </select>
+          <select id="dashProg" class="field-input" style="max-width:180px">
+            <option value="all" ${dashProgressFilter==='all'?'selected':''}>Mọi tiến độ</option>
+            <option value="none" ${dashProgressFilter==='none'?'selected':''}>0% (chưa làm)</option>
+            <option value="low" ${dashProgressFilter==='low'?'selected':''}>1-49%</option>
+            <option value="mid" ${dashProgressFilter==='mid'?'selected':''}>50-99%</option>
+            <option value="high" ${dashProgressFilter==='high'?'selected':''}>100% (xong)</option>
+          </select>
+        </div>
       </div>
       ${(() => {
         let items = s.upcoming;
@@ -172,6 +187,21 @@ routes.dashboard = async () => {
         if (dashSearch) {
           const q = dashSearch.toLowerCase();
           items = items.filter(c => (c.full_name+' '+(c.job_title||'')+' '+(c.department||'')).toLowerCase().includes(q));
+        }
+        // Department filter
+        if (dashDeptFilter !== 'all') {
+          items = items.filter(c => c.department === dashDeptFilter);
+        }
+        // Progress filter
+        if (dashProgressFilter !== 'all') {
+          items = items.filter(c => {
+            const pct = c.total_tasks ? (c.done_tasks/c.total_tasks*100) : 0;
+            if (dashProgressFilter === 'none') return pct === 0;
+            if (dashProgressFilter === 'low') return pct > 0 && pct < 50;
+            if (dashProgressFilter === 'mid') return pct >= 50 && pct < 100;
+            if (dashProgressFilter === 'high') return pct === 100;
+            return true;
+          });
         }
         // Sort
         items = [...items].sort((a, b) => {
@@ -202,12 +232,14 @@ routes.dashboard = async () => {
       })()}
     </div>
   `;
-  // Dashboard search + sort handlers
+  // Dashboard search + filter + sort handlers
   let dashTimer;
   $('#dashSearch') && ($('#dashSearch').oninput = e => {
     clearTimeout(dashTimer);
     dashTimer = setTimeout(() => { dashSearch = e.target.value; render(); }, 200);
   });
+  $('#dashDept') && ($('#dashDept').onchange = e => { dashDeptFilter = e.target.value; render(); });
+  $('#dashProg') && ($('#dashProg').onchange = e => { dashProgressFilter = e.target.value; render(); });
   $$('th[data-dsort]').forEach(h => h.onclick = () => {
     const f = h.dataset.dsort;
     if (dashSort.field === f) dashSort.dir = dashSort.dir === 'asc' ? 'desc' : 'asc';
