@@ -85,30 +85,55 @@ const render = async () => {
   catch (e) { console.error(e); $('#content').innerHTML = `<div class="text-center text-red-600 py-10">Lỗi: ${escapeHtml(e.message)}</div>`; }
 };
 window.addEventListener('popstate', render);
-$$('.menu-item').forEach(el => el.addEventListener('click', e => { e.preventDefault(); navigate(el.dataset.route); }));
+// SPA navigation cho mọi element có [data-route]
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-route]');
+  if (el && !e.metaKey && !e.ctrlKey) {
+    e.preventDefault();
+    navigate(el.dataset.route);
+  }
+});
 $('#todayLabel').textContent = new Date().toLocaleDateString('vi-VN');
 
 // ═══════════ DASHBOARD ═══════════
 routes.dashboard = async () => {
   $('#pageTitle').textContent = 'Dashboard';
   const s = await api.get('/api/dashboard/stats');
-  const stat = (icon, label, value, color) => `
-    <div class="bg-white rounded-xl p-5 border border-slate-200 flex items-center gap-4 shadow-sm">
+
+  // Cảnh báo urgent (banner đỏ trên đầu)
+  const alerts = [];
+  if (s.overdueChecks > 0) alerts.push({ icon: '🔴', text: `<strong>${s.overdueChecks}</strong> checklist QUÁ HẠN cần xử lý ngay`, route: 'checklist', bg: 'bg-red-50 border-red-500 text-red-900', hover: 'hover:bg-red-100' });
+  if (s.todayEmails > 0) alerts.push({ icon: '⏰', text: `<strong>${s.todayEmails}</strong> email cần gửi HÔM NAY`, route: 'emails', bg: 'bg-amber-50 border-amber-500 text-amber-900', hover: 'hover:bg-amber-100' });
+  if (s.pendingOrders > 0) alerts.push({ icon: '📦', text: `<strong>${s.pendingOrders}</strong> order bộ phận đang CHỜ XỬ LÝ`, route: 'orders', bg: 'bg-orange-50 border-orange-500 text-orange-900', hover: 'hover:bg-orange-100' });
+  const alertHtml = alerts.length === 0 ? '' : `
+    <div class="mb-5 space-y-2">
+      ${alerts.map(a => `<button data-route="${a.route}" class="w-full text-left ${a.bg} border-l-4 px-4 py-3 rounded-lg flex items-center gap-3 ${a.hover} transition cursor-pointer">
+        <span class="text-2xl">${a.icon}</span>
+        <span class="flex-1">${a.text}</span>
+        <span>→</span>
+      </button>`).join('')}
+    </div>`;
+
+  // Stat card clickable - bấm vào navigate đến page tương ứng
+  const stat = (icon, label, value, color, route) => `
+    <button data-route="${route}" class="text-left bg-white rounded-xl p-5 border border-slate-200 flex items-center gap-4 shadow-sm hover:shadow-md hover:border-indigo-300 transition cursor-pointer w-full">
       <div class="w-12 h-12 rounded-xl grid place-items-center text-2xl ${color}">${icon}</div>
-      <div>
+      <div class="flex-1">
         <div class="text-[11px] text-slate-500 uppercase tracking-wide font-semibold">${label}</div>
         <div class="text-2xl font-bold text-slate-900">${value}</div>
       </div>
-    </div>`;
+      <div class="text-slate-400">→</div>
+    </button>`;
   $('#content').innerHTML = `
+    ${alertHtml}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-      ${stat('👥','Tổng ứng viên', s.totalCandidates, 'bg-blue-100 text-blue-600')}
-      ${stat('✉️','Email cần gửi hôm nay', s.todayEmails, 'bg-green-100 text-green-600')}
-      ${stat('📦','Order chờ xử lý', s.pendingOrders, 'bg-amber-100 text-amber-600')}
-      ${stat('⚠️','Checklist quá hạn', s.overdueChecks, 'bg-red-100 text-red-600')}
+      ${stat('👥','Tổng ứng viên', s.totalCandidates, 'bg-blue-100 text-blue-600', 'candidates')}
+      ${stat('✉️','Email cần gửi hôm nay', s.todayEmails, 'bg-green-100 text-green-600', 'emails')}
+      ${stat('📦','Order chờ xử lý', s.pendingOrders, 'bg-amber-100 text-amber-600', 'orders')}
+      ${stat('⚠️','Checklist quá hạn', s.overdueChecks, 'bg-red-100 text-red-600', 'checklist')}
     </div>
 
-    <div class="bg-white rounded-xl border border-slate-200 mb-5 overflow-hidden">
+    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
       <div class="px-5 py-3 border-b border-slate-200 flex justify-between items-center">
         <h2 class="font-bold text-slate-900">Sắp onboard 7 ngày tới</h2>
         <span class="text-xs text-slate-500">${s.upcoming.length} ứng viên</span>
@@ -130,57 +155,8 @@ routes.dashboard = async () => {
           }).join('')}</tbody>
         </table>`}
     </div>
-
-    <div class="bg-white rounded-xl border border-slate-200 mb-5 overflow-hidden">
-      <div class="px-5 py-3 border-b border-slate-200 flex justify-between items-center">
-        <h2 class="font-bold text-slate-900">Email cần gửi hôm nay (${todayStr()})</h2>
-        <span class="text-xs text-slate-500">${s.todayEmailQueue.length} email</span>
-      </div>
-      ${s.todayEmailQueue.length === 0 ? '<div class="p-8 text-center text-slate-400">Không có email nào</div>' : `
-        <table class="w-full text-sm">
-          <thead class="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-600">
-            <tr><th class="text-left px-5 py-3">Mốc</th><th class="text-left px-5 py-3">Loại</th><th class="text-left px-5 py-3">Người nhận</th><th class="text-left px-5 py-3">Tiêu đề</th><th></th></tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">${s.todayEmailQueue.map(e => `
-            <tr>
-              <td class="px-5 py-3"><span class="ms-badge ${msClass(e.milestone)}">${e.milestone}</span></td>
-              <td class="px-5 py-3">${e.email_type==='department'?'🏢 Bộ phận':'👤 Ứng viên'}</td>
-              <td class="px-5 py-3"><div class="font-medium">${escapeHtml(e.receiver_label||'')}</div><div class="text-xs text-slate-500">${escapeHtml(e.receiver||'(chưa có email)')}</div></td>
-              <td class="px-5 py-3">${escapeHtml(e.subject)}</td>
-              <td class="px-5 py-3 text-right"><button class="btn btn-primary btn-sm" data-send="${e.id}">Gửi ngay</button></td>
-            </tr>`).join('')}</tbody>
-        </table>`}
-    </div>
-
-    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-      <div class="px-5 py-3 border-b border-slate-200 flex justify-between items-center">
-        <h2 class="font-bold text-slate-900">Order chưa xử lý</h2>
-        <span class="text-xs text-slate-500">${s.overdueOrders.length} đang chờ</span>
-      </div>
-      ${s.overdueOrders.length === 0 ? '<div class="p-8 text-center text-slate-400">Tất cả order đã được xử lý 🎉</div>' : `
-        <table class="w-full text-sm">
-          <thead class="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-600">
-            <tr><th class="text-left px-5 py-3">Mốc</th><th class="text-left px-5 py-3">Order</th><th class="text-left px-5 py-3">Người phụ trách</th><th class="text-left px-5 py-3">Ứng viên</th><th class="text-left px-5 py-3">Hạn</th><th class="text-left px-5 py-3">Email</th><th class="text-left px-5 py-3">Xử lý</th></tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">${s.overdueOrders.map(o => `
-            <tr>
-              <td class="px-5 py-3"><span class="ms-badge ${msClass(o.milestone)}">${o.milestone}</span></td>
-              <td class="px-5 py-3">${escapeHtml(o.order_type)}</td>
-              <td class="px-5 py-3">${escapeHtml(o.receiver)}</td>
-              <td class="px-5 py-3">${escapeHtml(o.full_name)}</td>
-              <td class="px-5 py-3 ${o.deadline<todayStr()?'text-red-600 font-semibold':''}">${fmt(o.deadline)}</td>
-              <td class="px-5 py-3">${o.email_sent?'✅':'⏳'}</td>
-              <td class="px-5 py-3">${o.processed?'✅':'⏳'}</td>
-            </tr>`).join('')}</tbody>
-        </table>`}
-    </div>
   `;
   $$('[data-cid]').forEach(b => b.onclick = () => navigate('candidates', { id:b.dataset.cid }));
-  $$('[data-send]').forEach(b => b.onclick = async () => {
-    if (!confirm('Gửi email ngay?')) return;
-    const r = await api.post(`/api/emails/${b.dataset.send}/send`);
-    if (r.error) toast('❌ '+r.error,'error'); else { toast('✅ Đã gửi','success'); render(); }
-  });
 };
 
 // ═══════════ CANDIDATES ═══════════

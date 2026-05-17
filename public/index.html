@@ -30,13 +30,6 @@
       <nav class="flex-1 p-3 space-y-1 overflow-y-auto" id="sidebarMenu">
         <a class="menu-item" data-route="dashboard"><span>📊</span><span>Dashboard</span></a>
         <a class="menu-item" data-route="candidates"><span>👥</span><span>Ứng Viên</span></a>
-        <a class="menu-item" data-route="emails"><span>✉️</span><span>Lịch Email</span></a>
-        <a class="menu-item" data-route="orders"><span>📦</span><span>Order Bộ Phận</span></a>
-        <a class="menu-item" data-route="checklist"><span>✅</span><span>Checklist</span></a>
-        <a class="menu-item" data-route="followup"><span>❓</span><span>Câu hỏi Follow-up</span></a>
-        <a class="menu-item" data-route="templates"><span>📝</span><span>Mẫu Email</span></a>
-        <a class="menu-item" data-route="docs"><span>📁</span><span>Tài Liệu &amp; Link</span></a>
-        <a class="menu-item" data-route="settings"><span>⚙️</span><span>Cài Đặt</span></a>
       </nav>
       <div id="userBox" class="hidden px-3 py-3 border-t border-slate-700 flex items-center gap-3">
         <img id="userAvatar" class="w-8 h-8 rounded-full bg-slate-600" alt="" />
@@ -44,6 +37,9 @@
           <div id="userName" class="text-xs font-semibold text-white truncate"></div>
           <div id="userEmail" class="text-[10px] text-slate-400 truncate"></div>
         </div>
+        <a href="/settings" class="text-slate-400 hover:text-indigo-400 transition" title="Cài đặt" data-route="settings">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </a>
         <button id="logoutBtn" title="Đăng xuất" class="text-slate-400 hover:text-red-400 transition">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         </button>
