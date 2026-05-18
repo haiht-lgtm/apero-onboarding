@@ -11,11 +11,20 @@ const escapeHtml = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','
 const msClass = m => 'ms-' + (m||'').replace('+','p').replace(/\s/g,'');
 const handle = async r => {
   if (r.status === 401) {
-    // Session hết hạn → về login
     location.href = '/login?redirect=' + encodeURIComponent(location.pathname);
     throw new Error('Unauthorized');
   }
-  return r.json();
+  let body;
+  try { body = await r.json(); } catch { body = null; }
+  // Đặc biệt: GET methods + 4xx/5xx → throw để render() bắt; tránh trả error object
+  // giả vờ là array gây lỗi như "checks.filter is not a function"
+  if (!r.ok && body && body.error) {
+    const err = new Error(body.error);
+    err.status = r.status;
+    err.body = body;
+    throw err;
+  }
+  return body;
 };
 const NO_CACHE = { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } };
 const api = {
@@ -497,7 +506,12 @@ const renderCandidateDetail = async (id, tab='emails') => {
   $('#btnBack').onclick = () => navigate('candidates');
 
   const c = await api.get('/api/candidates/'+id);
-  const checks = await api.get(`/api/candidates/${id}/checklist`);
+  if (!c || c.error) {
+    $('#content').innerHTML = `<div class="p-10 text-center text-red-600">Ứng viên không tồn tại hoặc đã bị xóa. <button class="btn btn-primary ml-2" onclick="location.href='/candidates'">← Quay lại</button></div>`;
+    return;
+  }
+  const checksRaw = await api.get(`/api/candidates/${id}/checklist`);
+  const checks = Array.isArray(checksRaw) ? checksRaw : [];
   const total = checks.length, done = checks.filter(x=>x.is_done).length;
   const pct = total ? Math.round(done/total*100) : 0;
   const st = candidateStatus(c.start_date);
