@@ -1052,10 +1052,10 @@ routes.checklist = async () => {
     <td class="px-3 py-3 w-10"><input type="checkbox" class="row-check w-4 h-4 cursor-pointer" data-id="${it.id}" ${it.is_done||it.is_skipped?'disabled':''}/></td>
     <td class="px-3 py-3"><a class="text-indigo-600 hover:underline cursor-pointer" data-cid="${it.candidate.id}">${escapeHtml(it.candidate.full_name)}</a><div class="text-xs text-slate-500">${escapeHtml(it.candidate.department||'')}</div></td>
     <td class="px-3 py-3"><span class="ms-badge ${msClass(it.milestone)}">${it.milestone}</span></td>
-    <td class="px-3 py-3">${escapeHtml(it.task_name)}</td>
+    <td class="px-3 py-3">${escapeHtml(it.task_name)}${it.has_auto_rule?'<span class="ml-2 inline-block px-1.5 py-0.5 text-[10px] rounded bg-blue-100 text-blue-700 font-semibold" title="Auto-tick khi email/order tương ứng đã xử lý">⚡ AUTO</span>':''}</td>
     <td class="px-3 py-3">${escapeHtml(it.assignee)}</td>
     <td class="px-3 py-3 ${it.deadline<today&&!it.is_done&&!it.is_skipped?'text-red-600 font-semibold':''}">${fmt(it.deadline)}</td>
-    <td class="px-3 py-3">${it.is_skipped?'<span class="text-slate-400">Đã xóa</span>':it.is_done?'<span class="text-green-600">✓ Done</span>':it.deadline<today?'<span class="text-red-600">Quá hạn</span>':it.deadline===today?'<span class="text-amber-600">Hôm nay</span>':'<span class="text-slate-500">Sắp tới</span>'}</td>
+    <td class="px-3 py-3">${it.is_skipped?'<span class="text-slate-400">Đã xóa</span>':it.is_auto_done?'<span class="text-blue-600">⚡ Auto Done</span>':it.is_done?'<span class="text-green-600">✓ Done</span>':it.deadline<today?'<span class="text-red-600">Quá hạn</span>':it.deadline===today?'<span class="text-amber-600">Hôm nay</span>':'<span class="text-slate-500">Sắp tới</span>'}</td>
   </tr>`;
 
   const ico = f => checklistSort.field !== f ? '<span class="opacity-30">↕</span>' : checklistSort.dir==='asc' ? '<span class="text-indigo-600">↑</span>' : '<span class="text-indigo-600">↓</span>';
