@@ -1421,6 +1421,14 @@ routes.settings = async () => {
       <div class="mt-4"><button class="btn btn-primary" id="btnSave3">💾 Lưu</button></div>
     </div>
 
+    <div class="bg-white rounded-xl border border-slate-200 p-5 mb-5">
+      <h2 class="font-bold text-slate-900 mb-1">⏰ Auto-send email</h2>
+      <p class="text-sm text-slate-500 mb-3">App tự gửi email đến hạn 1 lần / ngày lúc <b>8h sáng VN</b> (Vercel Cron). Cũng auto-trigger khi thêm ứng viên mới và lazy mỗi khi vào Dashboard.</p>
+      <div id="cronStatus" class="text-xs text-slate-500 mb-3">Đang tải status...</div>
+      <button class="btn btn-primary" id="btnCronNow">⚡ Gửi tất cả email đến hạn ngay</button>
+      <div id="cronResult" class="mt-3 text-sm"></div>
+    </div>
+
     <div class="bg-white rounded-xl border border-slate-200 p-5">
       <h2 class="font-bold text-slate-900 mb-1">Quản lý nâng cao</h2>
       <p class="text-sm text-slate-500 mb-4">Truy cập nhanh các trang quản lý chi tiết</p>
@@ -1474,6 +1482,31 @@ routes.settings = async () => {
     const r = await api.post('/api/settings/test-email', body);
     if (r.error) toast('❌ '+r.error,'error'); else toast('✅ Đã gửi test tới '+to,'success');
   }, 'Đang gửi mail...');
+
+  // Load cron status
+  (async () => {
+    try {
+      const r = await api.get('/api/cron/status');
+      if (r.last) {
+        const dt = new Date(r.last.at).toLocaleString('vi-VN');
+        $('#cronStatus').innerHTML = `Lần cuối: <b>${dt}</b> · ${r.last.due} đến hạn · gửi <span class="text-green-600">${r.last.sent}</span>${r.last.failed?'· lỗi <span class="text-red-600">'+r.last.failed+'</span>':''} (source: ${r.last.source})`;
+      } else {
+        $('#cronStatus').textContent = 'Chưa có lần chạy nào.';
+      }
+    } catch {}
+  })();
+
+  $('#btnCronNow').onclick = withLoading(async () => {
+    const r = await api.post('/api/cron/run-now', {});
+    if (r.error) {
+      $('#cronResult').innerHTML = `<div class="text-red-600">❌ ${escapeHtml(r.error)}</div>`;
+      return;
+    }
+    const msg = `✅ Đến hạn: ${r.due} · Gửi thành công: ${r.sent}` + (r.failed?` · Lỗi: ${r.failed}`:'');
+    $('#cronResult').innerHTML = `<div class="text-green-700 mb-2">${msg}</div>` +
+      (r.results && r.results.length ? `<details class="text-xs"><summary class="cursor-pointer text-slate-600">Chi tiết ${r.results.length} email</summary><div class="mt-2 space-y-1">${r.results.map(x => `<div>${x.status === 'sent' ? '✅' : '❌'} ${escapeHtml(x.candidate||'')} — ${x.key} ${x.error?'('+escapeHtml(x.error)+')':''}</div>`).join('')}</div></details>` : '');
+    toast(msg, 'success');
+  }, 'Đang gửi...');
 };
 
 // ═══════════ MODAL ═══════════
