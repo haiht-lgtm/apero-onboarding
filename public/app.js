@@ -477,6 +477,7 @@ const openCandidateModal = (existing) => {
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div><label class="field-label">Họ và tên *</label><input id="f_full_name" class="field-input" value="${escapeHtml(c.full_name||'')}"/></div>
         <div><label class="field-label">Email cá nhân *</label><input id="f_personal_email" type="email" class="field-input" value="${escapeHtml(c.personal_email||'')}"/></div>
+        <div><label class="field-label">Giới tính</label><select id="f_gender" class="field-input"><option value="" ${!c.gender?'selected':''}>— Chưa xác định —</option><option value="male" ${c.gender==='male'?'selected':''}>Nam (Anh)</option><option value="female" ${c.gender==='female'?'selected':''}>Nữ (Chị)</option><option value="other" ${c.gender==='other'?'selected':''}>Khác</option></select></div>
         <div><label class="field-label">SĐT</label><input id="f_phone" class="field-input" value="${escapeHtml(c.phone||'')}"/></div>
         <div><label class="field-label">Ngày đi làm *</label><input id="f_start_date" type="date" class="field-input" value="${c.start_date||todayStr()}"/></div>
         <div><label class="field-label">Chức danh</label><input id="f_job_title" class="field-input" placeholder="VD: Android Developer" value="${escapeHtml(c.job_title||'')}"/></div>
@@ -489,7 +490,9 @@ const openCandidateModal = (existing) => {
     okLabel: existing?'Cập nhật':'Tạo & sinh lịch',
     onOk: async () => {
       const data = {};
-      ['full_name','personal_email','phone','start_date','job_title','level','department','manager_name','manager_email'].forEach(k => data[k] = $('#f_'+k).value.trim());
+      ['full_name','personal_email','phone','start_date','job_title','level','department','manager_name','manager_email','gender'].forEach(k => {
+        const el = $('#f_'+k); if (el) data[k] = (el.value||'').trim();
+      });
       if (!data.full_name || !data.personal_email || !data.start_date) { toast('Nhập đủ trường bắt buộc','error'); return false; }
       const r = existing ? await api.put('/api/candidates/'+existing.id, data) : await api.post('/api/candidates', data);
       if (r.error) { toast(r.error,'error'); return false; }
@@ -713,6 +716,7 @@ const renderInfoTab = (c) => {
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div><label class="field-label">Họ và tên</label><input id="i_full_name" class="field-input" value="${escapeHtml(c.full_name||'')}"/></div>
       <div><label class="field-label">Email cá nhân</label><input id="i_personal_email" class="field-input" value="${escapeHtml(c.personal_email||'')}"/></div>
+      <div><label class="field-label">Giới tính</label><select id="i_gender" class="field-input"><option value="" ${!c.gender?'selected':''}>— Chưa xác định —</option><option value="male" ${c.gender==='male'?'selected':''}>Nam (Anh)</option><option value="female" ${c.gender==='female'?'selected':''}>Nữ (Chị)</option><option value="other" ${c.gender==='other'?'selected':''}>Khác</option></select></div>
       <div><label class="field-label">SĐT</label><input id="i_phone" class="field-input" value="${escapeHtml(c.phone||'')}"/></div>
       <div><label class="field-label">Ngày đi làm</label><input id="i_start_date" type="date" class="field-input" value="${c.start_date||''}"/></div>
       <div><label class="field-label">Chức danh</label><input id="i_job_title" class="field-input" value="${escapeHtml(c.job_title||'')}"/></div>
@@ -725,7 +729,9 @@ const renderInfoTab = (c) => {
   </div>`;
   $('#iSave').onclick = withLoading(async () => {
     const data = {};
-    ['full_name','personal_email','phone','start_date','job_title','level','department','manager_name','manager_email'].forEach(k => data[k] = $('#i_'+k).value.trim());
+    ['full_name','personal_email','phone','start_date','job_title','level','department','manager_name','manager_email','gender'].forEach(k => {
+      const el = $('#i_'+k); if (el) data[k] = (el.value||'').trim();
+    });
     const r = await api.put('/api/candidates/'+c.id, data);
     if (r.error) toast(r.error,'error'); else { toast('✅ Đã lưu','success'); render(); }
   }, 'Đang lưu...');
