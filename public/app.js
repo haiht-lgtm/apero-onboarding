@@ -157,6 +157,11 @@ const render = async () => {
   const path = location.pathname.replace(/^\/+/, '') || 'dashboard';
   const [route, id, tab] = path.split('/');
   $$('.menu-item, .menu-item-sub').forEach(m => m.classList.toggle('active', m.dataset.route === route));
+  // Auto-mở menu-group chứa active sub-item
+  $$('.menu-group').forEach(g => {
+    const hasActive = g.querySelector('.menu-item-sub.active');
+    if (hasActive) g.setAttribute('open', '');
+  });
   $('#topActions').innerHTML = '';
   $('#content').innerHTML = '<div class="text-center text-slate-400 py-10">Đang tải…</div>';
   try { await (routes[route] || routes.dashboard)(id, tab); }
