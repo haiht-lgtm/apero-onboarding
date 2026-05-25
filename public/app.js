@@ -153,15 +153,22 @@ const navigate = (route, params={}) => {
     render();
   } else render();
 };
+// Map route → parent menu item route trong sidebar
+const PARENT_ROUTE_MAP = {
+  candidates: 'candidates',
+  orders: 'advanced',
+  checklist: 'advanced',
+  emails: 'advanced',
+  templates: 'advanced',
+  docs: 'advanced',
+  followup: 'advanced',
+  advanced: 'advanced'
+};
 const render = async () => {
   const path = location.pathname.replace(/^\/+/, '') || 'dashboard';
   const [route, id, tab] = path.split('/');
-  $$('.menu-item, .menu-item-sub').forEach(m => m.classList.toggle('active', m.dataset.route === route));
-  // Auto-mở menu-group chứa active sub-item
-  $$('.menu-group').forEach(g => {
-    const hasActive = g.querySelector('.menu-item-sub.active');
-    if (hasActive) g.setAttribute('open', '');
-  });
+  const parent = PARENT_ROUTE_MAP[route] || route;
+  $$('.menu-item').forEach(m => m.classList.toggle('active', m.dataset.route === parent));
   $('#topActions').innerHTML = '';
   $('#content').innerHTML = '<div class="text-center text-slate-400 py-10">Đang tải…</div>';
   try { await (routes[route] || routes.dashboard)(id, tab); }
@@ -1356,6 +1363,31 @@ const openTemplateEditor = async (key) => {
     $('#t_offset').value = r.day_offset;
     toast('↺ Đã khôi phục mặc định','success');
   }, 'Đang reset...');
+};
+
+// ═══════════ ADVANCED HUB PAGE ═══════════
+routes.advanced = async () => {
+  $('#pageTitle').textContent = 'Quản Lý Nâng Cao';
+  const items = [
+    { route:'orders',    icon:'📦',  label:'Order Bộ Phận',      desc:'Tracking 5 order/ứng viên (thiết bị, email, MISA...)' },
+    { route:'checklist', icon:'✅',  label:'Checklist',          desc:'44 đầu việc HR phải làm theo timeline' },
+    { route:'emails',    icon:'✉️',  label:'Lịch Email',         desc:'Toàn bộ 8 email tự gửi cho ứng viên + bộ phận' },
+    { route:'templates', icon:'📝',  label:'Mẫu Email',          desc:'Sửa subject/body 8 templates email' },
+    { route:'followup',  icon:'❓',  label:'Câu hỏi Follow-up',   desc:'25 câu hỏi tracking sau onboard (D+1 → D+60)' },
+    { route:'docs',      icon:'📁',  label:'Tài Liệu & Link',    desc:'Forms, Drive, Discord, nhân sự liên quan' }
+  ];
+  $('#content').innerHTML = `
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      ${items.map(m => `<button data-route="${m.route}" class="text-left bg-white hover:shadow-md hover:border-indigo-300 border border-slate-200 rounded-xl p-5 flex items-start gap-4 transition cursor-pointer">
+        <span class="text-3xl">${m.icon}</span>
+        <div class="flex-1 min-w-0">
+          <div class="font-bold text-slate-900 text-base mb-1">${m.label}</div>
+          <div class="text-sm text-slate-500">${m.desc}</div>
+        </div>
+        <span class="text-slate-400 text-xl">→</span>
+      </button>`).join('')}
+    </div>
+  `;
 };
 
 // ═══════════ DOCS PAGE ═══════════
