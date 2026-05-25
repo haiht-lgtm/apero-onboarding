@@ -791,18 +791,19 @@ routes.emails = async () => {
   const ico = f => emailSort.field !== f ? '<span class="opacity-30">↕</span>' : emailSort.dir==='asc' ? '<span class="text-indigo-600">↑</span>' : '<span class="text-indigo-600">↓</span>';
   const th = (f, l, extra='') => `<th class="text-left px-5 py-3 cursor-pointer hover:bg-slate-100 select-none whitespace-nowrap ${extra}" data-esort="${f}">${l} ${ico(f)}</th>`;
 
-  // Status label + action button theo display_status
+  // Status label + action button theo display_status (spec UX v1.0)
   const statusBadge = (e) => {
     const s = e.display_status || e.status || 'pending';
-    const label = { sent:'Đã gửi', pending:'Sẵn sàng', warning:'Cần chú ý', locked:'Chưa đến lượt', failed:'Lỗi' }[s] || s;
+    const label = { sent:'Sent', pending:'Pending', warning:'Warning', locked:'Locked', failed:'Failed' }[s] || s;
     return `<span class="badge badge-${s}"><span class="dot"></span>${label}</span>`;
   };
   const actionBtns = (e) => {
     const s = e.display_status;
-    if (s === 'locked') return `<button class="btn btn-secondary btn-sm" data-prev="${e.id}">Xem trước</button>`;
+    // Spec: Sent = Xem trước; Pending = Xem trước · Gửi ngay; Warning = Xem trước · Gửi dù vậy; Locked = không có; Failed = Xem trước · Gửi lại
+    if (s === 'locked') return '<span class="text-xs text-slate-400">—</span>';
     if (s === 'sent') return `<button class="btn btn-secondary btn-sm" data-prev="${e.id}">Xem trước</button>`;
     if (s === 'pending') return `<button class="btn btn-secondary btn-sm" data-prev="${e.id}">Xem trước</button> <button class="btn btn-primary btn-sm" data-send="${e.id}">Gửi ngay</button>`;
-    if (s === 'warning') return `<button class="btn btn-secondary btn-sm" data-prev="${e.id}">Xem trước</button> <button class="btn btn-sm" data-send="${e.id}" style="background:#EF9F27;color:#fff">Gửi dù vậy</button>`;
+    if (s === 'warning') return `<button class="btn btn-secondary btn-sm" data-prev="${e.id}">Xem trước</button> <button class="btn btn-sm" data-send="${e.id}" style="background:#f5a623;color:#fff">Gửi dù vậy</button>`;
     if (s === 'failed') return `<button class="btn btn-secondary btn-sm" data-prev="${e.id}">Xem trước</button> <button class="btn btn-primary btn-sm" data-send="${e.id}">Gửi lại</button>`;
     return '';
   };
