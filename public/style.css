@@ -51,12 +51,51 @@
 .ms-Dp30 { background:#fce7f3; color:#9d174d }
 .ms-Dp60 { background:#ffedd5; color:#9a3412 }
 
-/* Status badges */
+/* Status badges (legacy) */
 .st-pending{ background:#fef3c7; color:#92400e }
 .st-sent{ background:#dcfce7; color:#166534 }
 .st-failed{ background:#fee2e2; color:#991b1b }
 .st-done{ background:#dcfce7; color:#166534 }
 .st-overdue{ background:#fee2e2; color:#b91c1c }
+
+/* ===== EMAIL STATUS BADGES (4 trạng thái mới) ===== */
+.badge{ display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:999px; font-size:11.5px; font-weight:600; white-space:nowrap }
+.badge .dot{ width:6px; height:6px; border-radius:50% }
+
+.badge-sent{ background:#EAF3DE; color:#27500A }
+.badge-sent .dot{ background:#3B6D11 }
+
+.badge-pending{ background:#E6F1FB; color:#0C447C }
+.badge-pending .dot{ background:#185FA5 }
+
+.badge-warning{ background:#FAEEDA; color:#633806 }
+.badge-warning .dot{ background:#854F0B }
+
+.badge-locked{ background:#f1f5f9; color:#64748b }
+.badge-locked .dot{ background:#94a3b8 }
+
+.badge-failed{ background:#FCEBEB; color:#791F1F }
+.badge-failed .dot{ background:#A32D2D }
+
+/* Warning inline alert (mốc trước chưa sent) */
+.warning-inline{
+  display:inline-block; margin-top:4px; padding:4px 10px;
+  background:#FAEEDA; color:#633806; border:1px solid #EF9F27;
+  border-radius:6px; font-size:11px; font-weight:500;
+}
+
+/* Priority circle (số thứ tự trong table Lịch Email) */
+.priority-circle{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:32px; height:32px; border-radius:50%;
+  font-weight:700; font-size:13px;
+  background:#f1f5f9; color:#475569; border:2px solid #e2e8f0;
+}
+.priority-circle.sent{ background:#EAF3DE; color:#27500A; border-color:#3B6D11 }
+.priority-circle.pending{ background:#E6F1FB; color:#0C447C; border-color:#185FA5 }
+.priority-circle.warning{ background:#FAEEDA; color:#633806; border-color:#854F0B }
+.priority-circle.locked{ background:#f1f5f9; color:#94a3b8; border-color:#cbd5e1 }
+.priority-circle.failed{ background:#FCEBEB; color:#791F1F; border-color:#A32D2D }
 
 /* Button base */
 .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;font-weight:600;font-size:13px;border:1px solid transparent;transition:.15s;cursor:pointer}

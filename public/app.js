@@ -221,10 +221,10 @@ routes.dashboard = async () => {
   $('#content').innerHTML = `
     ${alertHtml}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-      ${stat('👥','Tổng ứng viên', s.totalCandidates, 'bg-blue-100 text-blue-600', 'candidates')}
-      ${stat('✉️','Email cần gửi hôm nay', s.todayEmails, 'bg-green-100 text-green-600', 'emails')}
-      ${stat('📦','Order chờ xử lý', s.pendingOrders, 'bg-amber-100 text-amber-600', 'orders')}
-      ${stat('⚠️','Checklist quá hạn', s.overdueChecks, 'bg-red-100 text-red-600', 'checklist')}
+      ${stat('👥','Tổng ứng viên đang onboard', s.totalCandidates, 'bg-blue-100 text-blue-600', 'candidates')}
+      ${stat('✅','Hoàn thành checklist hôm nay', (s.checklistDoneToday||0)+'/'+(s.checklistTotalToday||0), 'bg-purple-100 text-purple-600', 'checklist')}
+      ${stat('✉️','Email sẽ gửi hôm nay', s.todayEmails, 'bg-green-100 text-green-600', 'emails')}
+      ${stat('⚠️','Việc quá hạn cần xử lý', s.overdueChecks, s.overdueChecks>0?'bg-red-100 text-red-600':'bg-slate-100 text-slate-500', 'checklist')}
     </div>
 
     <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -652,9 +652,15 @@ const renderOrdersTab = async (cid) => {
 };
 
 const renderChecklistTab = (cid, checks) => {
-  const order = ['D-7','D-5','D-3','D-2','D-1','D0','D+1','D+2','D+3','D+7','D+30','D+60'];
-  const groups = {};
-  for (const it of checks) (groups[it.milestone] = groups[it.milestone] || []).push(it);
+  // 3 giai đoạn theo spec
+  const STAGES = [
+    { id: 1, label: '📅 Giai đoạn 1: Trước ngày đầu tiên', icon: '📅', milestones: ['D-7','D-5','D-3','D-2','D-1'] },
+    { id: 2, label: '🚀 Giai đoạn 2: Tuần 1 — hội nhập', icon: '🚀', milestones: ['D0','D+1','D+2','D+3','D+7'] },
+    { id: 3, label: '🌱 Giai đoạn 3: Tháng 1 — ổn định', icon: '🌱', milestones: ['D+30','D+60'] }
+  ];
+  const stageOf = (m) => STAGES.find(s => s.milestones.includes(m)) || STAGES[2];
+  const stageGroups = { 1: [], 2: [], 3: [] };
+  for (const it of checks) stageGroups[stageOf(it.milestone).id].push(it);
   const assignees = Array.from(new Set(checks.map(c => c.assignee))).sort();
 
   $('#tabBody').innerHTML = `
@@ -663,20 +669,27 @@ const renderChecklistTab = (cid, checks) => {
       <span class="filter-chip active px-3 py-1 rounded-full text-xs font-semibold cursor-pointer bg-indigo-100 text-indigo-700 border border-indigo-300" data-asg="">Tất cả</span>
       ${assignees.map(a => `<span class="filter-chip px-3 py-1 rounded-full text-xs font-semibold cursor-pointer bg-slate-100 text-slate-700" data-asg="${escapeHtml(a)}">${escapeHtml(a)}</span>`).join('')}
     </div>
-    ${order.filter(m => groups[m]).map(m => `
-      <div class="bg-white rounded-xl border border-slate-200 mb-4 overflow-hidden">
-        <div class="px-5 py-2 border-b border-slate-200 flex items-center gap-2"><span class="ms-badge ${msClass(m)}">${m}</span><span class="text-xs text-slate-500">${groups[m].length} đầu việc</span></div>
-        <div class="p-3 space-y-2">${groups[m].map(it => {
+    ${STAGES.map(stage => {
+      const items = stageGroups[stage.id];
+      if (!items.length) return '';
+      const done = items.filter(x => x.is_done).length;
+      return `<div class="bg-white rounded-xl border border-slate-200 mb-4 overflow-hidden">
+        <div class="px-5 py-3 border-b border-slate-200 flex items-center justify-between gap-3 bg-slate-50">
+          <h3 class="font-bold text-slate-900 m-0">${stage.label}</h3>
+          <span class="text-xs text-slate-500"><b>${done}/${items.length}</b> hoàn thành</span>
+        </div>
+        <div class="p-3 space-y-2">${items.map(it => {
           const overdue = !it.is_done && it.deadline < todayStr();
           return `<div class="cl-item flex items-center gap-3 p-3 border border-slate-200 rounded-lg ${it.is_done?'bg-green-50 border-green-200':''}" data-asg="${escapeHtml(it.assignee)}">
             <input type="checkbox" ${it.is_done?'checked':''} data-cid="${it.id}" class="w-4 h-4 accent-indigo-600 cursor-pointer"/>
             <div class="flex-1">
-              <div class="font-medium ${it.is_done?'line-through text-slate-500':''}">${escapeHtml(it.task_name)}</div>
-              <div class="text-xs text-slate-500">👤 ${escapeHtml(it.assignee)} · 📅 <span class="${overdue?'text-red-600 font-semibold':''}">${fmt(it.deadline)}${overdue?' (quá hạn)':''}</span></div>
+              <div class="font-medium ${it.is_done?'line-through text-slate-500':''}">${escapeHtml(it.task_name)} <span class="ms-badge ${msClass(it.milestone)} ml-1">${it.milestone}</span></div>
+              <div class="text-xs text-slate-500 mt-1">👤 ${escapeHtml(it.assignee)} · 📅 <span class="${overdue?'text-red-600 font-semibold':''}">${fmt(it.deadline)}${overdue?' (quá hạn)':''}</span>${it.is_done&&it.done_at?' · ✓ '+fmtDT(it.done_at):''}</div>
             </div>
           </div>`;
         }).join('')}</div>
-      </div>`).join('')}
+      </div>`;
+    }).join('')}
   `;
   $$('input[type=checkbox][data-cid]').forEach(cb => cb.onchange = async () => {
     await api.put('/api/checklist/'+cb.dataset.cid, { is_done: cb.checked?1:0 });
@@ -778,9 +791,25 @@ routes.emails = async () => {
   const ico = f => emailSort.field !== f ? '<span class="opacity-30">↕</span>' : emailSort.dir==='asc' ? '<span class="text-indigo-600">↑</span>' : '<span class="text-indigo-600">↓</span>';
   const th = (f, l, extra='') => `<th class="text-left px-5 py-3 cursor-pointer hover:bg-slate-100 select-none whitespace-nowrap ${extra}" data-esort="${f}">${l} ${ico(f)}</th>`;
 
+  // Status label + action button theo display_status
+  const statusBadge = (e) => {
+    const s = e.display_status || e.status || 'pending';
+    const label = { sent:'Đã gửi', pending:'Sẵn sàng', warning:'Cần chú ý', locked:'Chưa đến lượt', failed:'Lỗi' }[s] || s;
+    return `<span class="badge badge-${s}"><span class="dot"></span>${label}</span>`;
+  };
+  const actionBtns = (e) => {
+    const s = e.display_status;
+    if (s === 'locked') return `<button class="btn btn-secondary btn-sm" data-prev="${e.id}">Xem trước</button>`;
+    if (s === 'sent') return `<button class="btn btn-secondary btn-sm" data-prev="${e.id}">Xem trước</button>`;
+    if (s === 'pending') return `<button class="btn btn-secondary btn-sm" data-prev="${e.id}">Xem trước</button> <button class="btn btn-primary btn-sm" data-send="${e.id}">Gửi ngay</button>`;
+    if (s === 'warning') return `<button class="btn btn-secondary btn-sm" data-prev="${e.id}">Xem trước</button> <button class="btn btn-sm" data-send="${e.id}" style="background:#EF9F27;color:#fff">Gửi dù vậy</button>`;
+    if (s === 'failed') return `<button class="btn btn-secondary btn-sm" data-prev="${e.id}">Xem trước</button> <button class="btn btn-primary btn-sm" data-send="${e.id}">Gửi lại</button>`;
+    return '';
+  };
+
   $('#content').innerHTML = `
     <div class="bg-white rounded-xl border border-slate-200 p-3 mb-4 flex gap-2 flex-wrap items-center">
-      <input id="emailSearch" type="text" class="field-input flex-1 min-w-[200px] max-w-md" placeholder="🔍 Tìm theo tên ứng viên / tiêu đề / người nhận / mốc..." value="${escapeHtml(emailFilters.search)}"/>
+      <input id="emailSearch" type="text" class="field-input flex-1 min-w-[200px] max-w-md" placeholder="🔍 Tìm theo tên ứng viên / tiêu đề / người nhận..." value="${escapeHtml(emailFilters.search)}"/>
       <span class="text-xs font-semibold text-slate-500">Trạng thái:</span>
       ${chip('status','','Tất cả')} ${chip('status','pending','Pending')} ${chip('status','sent','Sent')} ${chip('status','failed','Failed')}
       <span class="w-3"></span>
@@ -793,19 +822,27 @@ routes.emails = async () => {
         return `
       <table class="w-full text-sm">
         <thead class="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-600">
-          <tr>${th('milestone','Mốc','" style="min-width:90px')}${th('email_type','Loại','" style="min-width:140px')}${th('receiver','Gửi tới')}${th('full_name','Liên quan UV')}${th('subject','Tiêu đề')}${th('scheduled_date','Lịch gửi')}${th('status','Trạng thái')}<th></th></tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100">${pg.slice.map(e => `
           <tr>
-            <td class="px-5 py-3 whitespace-nowrap"><span class="ms-badge ${msClass(e.milestone)}">${e.milestone}</span></td>
-            <td class="px-5 py-3 whitespace-nowrap">${e.email_type==='department'?'🏢 Bộ phận':'👤 Ứng viên'}</td>
-            <td class="px-5 py-3"><div class="font-medium">${escapeHtml(e.receiver_label||'')}</div><div class="text-xs text-slate-500">${escapeHtml(e.receiver||'(chưa có email)')}</div></td>
-            <td class="px-5 py-3">${escapeHtml(e.full_name)}</td>
-            <td class="px-5 py-3">${escapeHtml(e.subject)}</td>
-            <td class="px-5 py-3">${fmt(e.scheduled_date)}${e.sent_date?'<div class="text-xs text-slate-500">'+fmtDT(e.sent_date)+'</div>':''}</td>
-            <td class="px-5 py-3"><span class="ms-badge st-${e.status}">${e.status}</span>${e.error?'<div class="text-xs text-red-600 mt-1">'+escapeHtml(e.error)+'</div>':''}</td>
-            <td class="px-5 py-3 text-right"><button class="btn btn-secondary btn-sm" data-prev="${e.id}">Preview</button> ${e.sent?'':'<button class="btn btn-primary btn-sm" data-send="'+e.id+'">Gửi ngay</button>'}</td>
-          </tr>`).join('')}</tbody>
+            ${th('priority','Ưu tiên','" style="width:56px')}
+            ${th('receiver','Gửi tới','" style="width:190px')}
+            ${th('subject','Tiêu đề')}
+            ${th('scheduled_date','Lịch gửi','" style="width:96px')}
+            ${th('display_status','Trạng thái','" style="width:90px')}
+            <th class="text-left px-3 py-3" style="width:170px">Hành động</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">${pg.slice.map(e => {
+          const s = e.display_status || 'pending';
+          const isWarn = s === 'warning';
+          return `<tr>
+            <td class="px-3 py-3"><div class="priority-circle ${s}">${e.priority||'?'}</div></td>
+            <td class="px-3 py-3" style="width:190px"><div class="font-medium">${escapeHtml(e.receiver_label||'')}</div><div class="text-xs text-slate-500 truncate">${escapeHtml(e.receiver||'(chưa có email)')}</div><div class="text-xs text-indigo-600 truncate">UV: ${escapeHtml(e.full_name||'')}</div></td>
+            <td class="px-3 py-3"><div class="font-medium">${escapeHtml(e.subject)}</div><div class="text-xs text-slate-500 mt-0.5">${e.email_type==='department'?'🏢 Bộ phận':'👤 Ứng viên'} · ${e.milestone}</div>${isWarn?'<div class="warning-inline">⚠️ Mốc #'+(e.priority-1)+' chưa hoàn thành — vẫn có thể gửi</div>':''}${e.error?'<div class="text-xs text-red-600 mt-1">'+escapeHtml(e.error)+'</div>':''}</td>
+            <td class="px-3 py-3 text-xs">${fmt(e.scheduled_date)}${e.sent_date?'<div class="text-slate-500">'+fmtDT(e.sent_date)+'</div>':''}</td>
+            <td class="px-3 py-3">${statusBadge(e)}</td>
+            <td class="px-3 py-3">${actionBtns(e)}</td>
+          </tr>`;
+        }).join('')}</tbody>
       </table>
       ${renderPagination('emails', pg)}`;
       })()}
