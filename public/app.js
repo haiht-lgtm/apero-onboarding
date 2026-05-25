@@ -153,22 +153,15 @@ const navigate = (route, params={}) => {
     render();
   } else render();
 };
-// Map route → parent menu item route trong sidebar
-const PARENT_ROUTE_MAP = {
-  candidates: 'candidates',
-  orders: 'advanced',
-  checklist: 'advanced',
-  emails: 'advanced',
-  templates: 'advanced',
-  docs: 'advanced',
-  followup: 'advanced',
-  advanced: 'advanced'
-};
 const render = async () => {
   const path = location.pathname.replace(/^\/+/, '') || 'dashboard';
   const [route, id, tab] = path.split('/');
-  const parent = PARENT_ROUTE_MAP[route] || route;
-  $$('.menu-item').forEach(m => m.classList.toggle('active', m.dataset.route === parent));
+  // Highlight active item (cả menu-item top + menu-item-sub)
+  $$('.menu-item, .menu-item-sub').forEach(m => m.classList.toggle('active', m.dataset.route === route));
+  // Auto-mở menu-group chứa sub-item active
+  $$('.menu-group').forEach(g => {
+    if (g.querySelector('.menu-item-sub.active')) g.setAttribute('open', '');
+  });
   $('#topActions').innerHTML = '';
   $('#content').innerHTML = '<div class="text-center text-slate-400 py-10">Đang tải…</div>';
   try { await (routes[route] || routes.dashboard)(id, tab); }
