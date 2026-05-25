@@ -156,7 +156,7 @@ const navigate = (route, params={}) => {
 const render = async () => {
   const path = location.pathname.replace(/^\/+/, '') || 'dashboard';
   const [route, id, tab] = path.split('/');
-  $$('.menu-item').forEach(m => m.classList.toggle('active', m.dataset.route === route));
+  $$('.menu-item, .menu-item-sub').forEach(m => m.classList.toggle('active', m.dataset.route === route));
   $('#topActions').innerHTML = '';
   $('#content').innerHTML = '<div class="text-center text-slate-400 py-10">Đang tải…</div>';
   try { await (routes[route] || routes.dashboard)(id, tab); }
@@ -1427,7 +1427,7 @@ routes.settings = async () => {
       <div class="mt-4"><button class="btn btn-primary" id="btnSave3">💾 Lưu</button></div>
     </div>
 
-    <div class="bg-white rounded-xl border border-slate-200 p-5">
+    <div class="hidden bg-white rounded-xl border border-slate-200 p-5">
       <h2 class="font-bold text-slate-900 mb-1">Quản lý nâng cao</h2>
       <p class="text-sm text-slate-500 mb-4">Truy cập nhanh các trang quản lý chi tiết</p>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
