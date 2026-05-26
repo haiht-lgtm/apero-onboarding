@@ -157,7 +157,7 @@ const render = async () => {
   const path = location.pathname.replace(/^\/+/, '') || 'dashboard';
   const [route, id, tab] = path.split('/');
   // Block public access đến hidden admin routes — silent redirect về dashboard
-  if (route === 'checklist' || route === 'orders') {
+  if (route === 'checklist' || route === 'orders' || route === 'followup') {
     history.replaceState({}, '', '/dashboard');
     return render();
   }
@@ -1314,7 +1314,7 @@ routes['cl-x7k'] = async () => {
 };
 
 // ═══════════ FOLLOW-UP PAGE (overview) ═══════════
-routes.followup = async () => {
+routes['fu-x7k'] = async () => {
   $('#pageTitle').textContent = 'Câu hỏi Follow-up';
   const cands = await api.get('/api/candidates');
   const order = ['D+1','D+2','D+3','D+7','D+30','D+60'];
