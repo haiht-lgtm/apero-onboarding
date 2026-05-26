@@ -201,23 +201,24 @@ routes.dashboard = async () => {
       </button>`).join('')}
     </div>`;
 
-  // Stat card clickable - bấm vào navigate đến page tương ứng
-  const stat = (icon, label, value, color, route) => `
-    <button data-route="${route}" class="text-left bg-white rounded-xl p-5 border border-slate-200 flex items-center gap-4 shadow-sm hover:shadow-md hover:border-indigo-300 transition cursor-pointer w-full">
-      <div class="w-12 h-12 rounded-xl grid place-items-center text-2xl ${color}">${icon}</div>
-      <div class="flex-1">
-        <div class="text-[11px] text-slate-500 uppercase tracking-wide font-semibold">${label}</div>
-        <div class="text-2xl font-bold text-slate-900">${value}</div>
-      </div>
-      <div class="text-slate-400">→</div>
+  // KPI card theo spec UX v1.0 — label / value / sub
+  const kpi = (label, value, sub, route, tone='') => {
+    const valCls = tone==='danger' ? 'text-red-600' : tone==='success' ? 'text-emerald-600' : 'text-slate-900';
+    return `<button data-route="${route}" class="text-left bg-white rounded-xl p-5 border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-300 transition cursor-pointer w-full">
+      <div class="text-[11px] text-slate-500 uppercase tracking-wide font-semibold mb-2">${label}</div>
+      <div class="text-3xl font-bold ${valCls} leading-tight">${value}</div>
+      <div class="text-[11px] text-slate-400 mt-1">${sub}</div>
     </button>`;
+  };
+  const overdueTone = s.overdueChecks > 0 ? 'danger' : '';
+  const checklistTone = (s.checklistTotalToday && s.checklistDoneToday === s.checklistTotalToday) ? 'success' : '';
   $('#content').innerHTML = `
     ${alertHtml}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-      ${stat('👥','Tổng ứng viên đang onboard', s.totalCandidates, 'bg-blue-100 text-blue-600', 'candidates')}
-      ${stat('✅','Hoàn thành checklist hôm nay', (s.checklistDoneToday||0)+'/'+(s.checklistTotalToday||0), 'bg-purple-100 text-purple-600', 'checklist')}
-      ${stat('✉️','Email sẽ gửi hôm nay', s.todayEmails, 'bg-green-100 text-green-600', 'emails')}
-      ${stat('⚠️','Việc quá hạn cần xử lý', s.overdueChecks, s.overdueChecks>0?'bg-red-100 text-red-600':'bg-slate-100 text-slate-500', 'checklist')}
+      ${kpi('Đang onboard', s.totalCandidates, 'Tổng ứng viên', 'candidates')}
+      ${kpi('Checklist hôm nay', (s.checklistDoneToday||0)+'/'+(s.checklistTotalToday||0), 'Hoàn thành', 'checklist', checklistTone)}
+      ${kpi('Email hôm nay', s.todayEmails, 'Tự gửi lúc 09:00', 'emails')}
+      ${kpi('Quá hạn', s.overdueChecks, 'Cần xử lý ngay', 'checklist', overdueTone)}
     </div>
 
     <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -805,7 +806,7 @@ routes.emails = async () => {
     <div class="bg-white rounded-xl border border-slate-200 p-3 mb-4 flex gap-2 flex-wrap items-center">
       <input id="emailSearch" type="text" class="field-input flex-1 min-w-[200px] max-w-md" placeholder="🔍 Tìm theo tên ứng viên / tiêu đề / người nhận..." value="${escapeHtml(emailFilters.search)}"/>
       <span class="text-xs font-semibold text-slate-500">Trạng thái:</span>
-      ${chip('status','','Tất cả')} ${chip('status','pending','Pending')} ${chip('status','sent','Sent')} ${chip('status','failed','Failed')}
+      ${chip('status','','Tất cả')} ${chip('status','pending','Pending')} ${chip('status','sent','Sent')} ${chip('status','warning','Warning')} ${chip('status','locked','Locked')} ${chip('status','failed','Failed')}
       <span class="w-3"></span>
       <span class="text-xs font-semibold text-slate-500">Loại:</span>
       ${chip('email_type','','Tất cả')} ${chip('email_type','candidate','👤 Ứng viên')} ${chip('email_type','department','🏢 Bộ phận')}
