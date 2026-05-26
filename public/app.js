@@ -174,7 +174,7 @@ document.addEventListener('click', e => {
   const el = e.target.closest('[data-route]');
   if (el && !e.metaKey && !e.ctrlKey) {
     e.preventDefault();
-    navigate(el.dataset.route);
+    navigate(el.dataset.route, { id: el.dataset.id, tab: el.dataset.tab });
   }
 });
 $('#todayLabel').textContent = new Date().toLocaleDateString('vi-VN');
@@ -871,6 +871,151 @@ routes.emails = async () => {
     if (!ok) return;
     const r = await api.post(`/api/emails/${this.dataset.send}/send`);
     if (r.error) toast('❌ '+r.error,'error'); else { toast('✅ Đã gửi','success'); render(); }
+  }, 'Đang gửi...'));
+};
+
+// ═══════════ EMAIL TIMELINE — HIDDEN ADMIN VIEW (/em-x7k) ═══════════
+// UI dạng card timeline gom theo 3 giai đoạn × candidate. Khớp Spec UX v1.2
+let emTimelineFilter = { search: '' };
+routes['em-x7k'] = async () => {
+  $('#pageTitle').textContent = 'Lịch Email — Timeline (Admin)';
+  const all = await api.get('/api/emails');
+
+  const STAGES = [
+    { num: 1, name: 'Chuẩn bị', desc: 'Trước ngày vào',     ms: ['D-7','D-5','D-3'] },
+    { num: 2, name: 'Hội nhập', desc: 'Tuần 1 → Tuần 2',     ms: ['D0','D+7'] },
+    { num: 3, name: 'Theo dõi', desc: 'Tháng 1 trở đi',     ms: ['D+30','D+60'] }
+  ];
+
+  // Filter search (candidate name / subject)
+  const q = (emTimelineFilter.search || '').trim().toLowerCase();
+  const list = !q ? all : all.filter(e =>
+    (e.full_name + ' ' + (e.subject||'') + ' ' + (e.receiver||'')).toLowerCase().includes(q)
+  );
+
+  // Group by candidate
+  const byCand = new Map();
+  list.forEach(e => {
+    if (!byCand.has(e.candidate_id)) byCand.set(e.candidate_id, { name: e.full_name, emails: [] });
+    byCand.get(e.candidate_id).emails.push(e);
+  });
+
+  const STATUS_LABEL = {
+    sent: 'Đã gửi', pending: 'Đang chờ phản hồi', warning: 'Cảnh báo · Mốc trước chưa sent',
+    locked: 'Chưa tới lượt', failed: 'Gửi thất bại'
+  };
+  const STATUS_ICON = { sent:'✓', pending:'⏱', warning:'⚠', locked:'🔒', failed:'✕' };
+
+  const renderCard = (e, stageEmailCount, idxInStage) => {
+    const s = e.display_status || 'pending';
+    const dateMain = fmt(e.scheduled_date) || '—';
+    const sentTime = e.sent_date ? fmtDT(e.sent_date) : '';
+    const typeIcon = e.email_type === 'department' ? '🏢' : '👤';
+    const typeLabel = e.email_type === 'department' ? (e.receiver_label || 'Bộ phận') : 'Ứng viên';
+
+    // Info bar: contextual message theo trạng thái
+    let infoBar = '';
+    if (s === 'sent' && e.template_key === 'M1') {
+      infoBar = `<div class="em-info-bar">ⓘ Đã gửi · Đang chờ ứng viên <span class="hl">điền form thông tin nhân sự</span></div>`;
+    } else if (s === 'sent') {
+      infoBar = `<div class="em-info-bar">ⓘ Đã gửi${sentTime?' lúc '+sentTime:''}</div>`;
+    } else if (s === 'warning') {
+      infoBar = `<div class="em-info-bar">⚠ Mốc #${(e.priority||1)-1} chưa hoàn thành — vẫn có thể <span class="hl">gửi dù vậy</span></div>`;
+    } else if (s === 'locked') {
+      infoBar = `<div class="em-info-bar">🔒 Chờ mốc trước đó được xử lý xong</div>`;
+    } else if (s === 'failed') {
+      infoBar = `<div class="em-info-bar">✕ ${escapeHtml(e.error || 'Gửi thất bại — kiểm tra log')}</div>`;
+    } else {
+      infoBar = `<div class="em-info-bar">ⓘ Sẵn sàng gửi · scheduled ${dateMain}</div>`;
+    }
+
+    // Action buttons theo trạng thái
+    let actions = `<button class="btn btn-secondary btn-sm" data-prev="${e.id}">Xem mail</button>`;
+    if (s === 'pending') actions += ` <button class="btn btn-primary btn-sm" data-send="${e.id}">Gửi ngay</button>`;
+    if (s === 'warning') actions += ` <button class="btn btn-sm" data-send="${e.id}" style="background:#854F0B;color:#fff">Gửi dù vậy</button>`;
+    if (s === 'failed') actions += ` <button class="btn btn-primary btn-sm" data-send="${e.id}">Gửi lại</button>`;
+    if (s === 'sent') actions += ` <button class="btn btn-secondary btn-sm" data-remind="${e.id}">Nhắc lại</button>`;
+
+    return `<div class="em-card is-${s}">
+      <div class="em-dot">${e.priority || idxInStage+1}</div>
+      <div class="em-card-top">
+        <span class="em-card-status">${STATUS_ICON[s]||'•'} ${STATUS_LABEL[s]||s}</span>
+        <span class="em-card-date">${dateMain}</span>
+      </div>
+      <div class="em-card-subject">${escapeHtml(e.subject)}</div>
+      <div class="em-card-meta">
+        <span>${typeIcon} ${escapeHtml(typeLabel)}</span><span class="sep">·</span>
+        <span>${escapeHtml(e.full_name||'')}</span><span class="sep">·</span>
+        <span>${e.milestone}</span>
+      </div>
+      ${infoBar}
+      <div class="em-card-actions">${actions}</div>
+    </div>`;
+  };
+
+  let html = `<div class="bg-white rounded-xl border border-slate-200 p-3 mb-4 flex gap-2 flex-wrap items-center">
+    <input id="emTlSearch" type="text" class="field-input flex-1 min-w-[240px] max-w-md" placeholder="🔍 Tìm theo ứng viên / tiêu đề / người nhận..." value="${escapeHtml(emTimelineFilter.search)}"/>
+    <span class="text-xs text-slate-500">${list.length} email · ${byCand.size} ứng viên</span>
+  </div>`;
+
+  if (byCand.size === 0) {
+    html += `<div class="bg-white rounded-xl border border-slate-200 p-10 text-center text-slate-400">Không có email khớp tìm kiếm</div>`;
+  }
+
+  for (const [cid, { name, emails }] of byCand) {
+    html += `<div class="bg-white rounded-xl border border-slate-200 p-5 mb-5">
+      <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-100">
+        <h2 class="text-base font-bold text-slate-900 m-0 flex items-center gap-2">
+          <div class="avatar">${initials(name||'?')}</div>
+          ${escapeHtml(name||'(no name)')}
+        </h2>
+        <button class="btn btn-secondary btn-sm" data-route="candidates" data-id="${cid}">Mở hồ sơ →</button>
+      </div>`;
+
+    STAGES.forEach(stage => {
+      const stageEmails = emails.filter(e => stage.ms.includes(e.milestone));
+      if (stageEmails.length === 0) return;
+      html += `<div class="em-stage">
+        <div class="em-stage-num">${stage.num}</div>
+        <div>
+          <div class="em-stage-head">
+            <div>
+              <h3>${stage.name}</h3>
+              <p>${stage.desc} · ${stageEmails.length} email tuần tự</p>
+            </div>
+          </div>
+          <div class="em-timeline">
+            ${stageEmails.map((e, i) => renderCard(e, stageEmails.length, i)).join('')}
+          </div>
+        </div>
+      </div>`;
+    });
+
+    html += `</div>`;
+  }
+
+  $('#content').innerHTML = html;
+
+  // Search debounced
+  let tlTimer;
+  $('#emTlSearch') && ($('#emTlSearch').oninput = ev => {
+    clearTimeout(tlTimer);
+    tlTimer = setTimeout(() => { emTimelineFilter.search = ev.target.value; render(); }, 200);
+  });
+
+  // Wire actions
+  $$('[data-prev]').forEach(b => b.onclick = () => previewEmail(b.dataset.prev));
+  $$('[data-send]').forEach(b => b.onclick = withLoading(async function () {
+    const ok = await showConfirm({ title:'Gửi email ngay?', message:'Email sẽ được gửi qua SMTP đã cấu hình.', icon:'✉️', okLabel:'Gửi ngay' });
+    if (!ok) return;
+    const r = await api.post(`/api/emails/${this.dataset.send}/send`);
+    if (r.error) toast('❌ '+r.error,'error'); else { toast('✅ Đã gửi','success'); render(); }
+  }, 'Đang gửi...'));
+  $$('[data-remind]').forEach(b => b.onclick = withLoading(async function () {
+    const ok = await showConfirm({ title:'Gửi nhắc lại?', message:'Email này đã gửi rồi — gửi nhắc lại cho người nhận?', icon:'🔔', okLabel:'Nhắc lại' });
+    if (!ok) return;
+    const r = await api.post(`/api/emails/${this.dataset.remind}/send`);
+    if (r.error) toast('❌ '+r.error,'error'); else { toast('✅ Đã nhắc lại','success'); render(); }
   }, 'Đang gửi...'));
 };
 
