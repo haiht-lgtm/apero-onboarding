@@ -156,6 +156,11 @@ const navigate = (route, params={}) => {
 const render = async () => {
   const path = location.pathname.replace(/^\/+/, '') || 'dashboard';
   const [route, id, tab] = path.split('/');
+  // Block public access đến hidden admin routes — silent redirect về dashboard
+  if (route === 'checklist' || route === 'orders') {
+    history.replaceState({}, '', '/dashboard');
+    return render();
+  }
   // Highlight active item (cả menu-item top + menu-item-sub)
   $$('.menu-item, .menu-item-sub').forEach(m => m.classList.toggle('active', m.dataset.route === route));
   $('#topActions').innerHTML = '';
@@ -185,9 +190,9 @@ routes.dashboard = async () => {
 
   // Cảnh báo urgent (banner đỏ trên đầu)
   const alerts = [];
-  if (s.overdueChecks > 0) alerts.push({ icon: '🔴', text: `<strong>${s.overdueChecks}</strong> checklist QUÁ HẠN cần xử lý ngay`, route: 'checklist', bg: 'bg-red-50 border-red-500 text-red-900', hover: 'hover:bg-red-100' });
+  if (s.overdueChecks > 0) alerts.push({ icon: '🔴', text: `<strong>${s.overdueChecks}</strong> checklist QUÁ HẠN cần xử lý ngay`, route: 'cl-x7k', bg: 'bg-red-50 border-red-500 text-red-900', hover: 'hover:bg-red-100' });
   if (s.todayEmails > 0) alerts.push({ icon: '⏰', text: `<strong>${s.todayEmails}</strong> email cần gửi HÔM NAY`, route: 'emails', bg: 'bg-amber-50 border-amber-500 text-amber-900', hover: 'hover:bg-amber-100' });
-  if (s.pendingOrders > 0) alerts.push({ icon: '📦', text: `<strong>${s.pendingOrders}</strong> order bộ phận đang CHỜ XỬ LÝ`, route: 'orders', bg: 'bg-orange-50 border-orange-500 text-orange-900', hover: 'hover:bg-orange-100' });
+  if (s.pendingOrders > 0) alerts.push({ icon: '📦', text: `<strong>${s.pendingOrders}</strong> order bộ phận đang CHỜ XỬ LÝ`, route: 'or-x7k', bg: 'bg-orange-50 border-orange-500 text-orange-900', hover: 'hover:bg-orange-100' });
   const alertHtml = alerts.length === 0 ? '' : `
     <div class="mb-5 space-y-2">
       ${alerts.map(a => `<button data-route="${a.route}" class="w-full text-left ${a.bg} border-l-4 px-4 py-3 rounded-lg flex items-center gap-3 ${a.hover} transition cursor-pointer">
@@ -212,9 +217,9 @@ routes.dashboard = async () => {
     ${alertHtml}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       ${kpi('Đang onboard', s.totalCandidates, 'Tổng ứng viên', 'candidates')}
-      ${kpi('Checklist hôm nay', (s.checklistDoneToday||0)+'/'+(s.checklistTotalToday||0), 'Hoàn thành', 'checklist', checklistTone)}
+      ${kpi('Checklist hôm nay', (s.checklistDoneToday||0)+'/'+(s.checklistTotalToday||0), 'Hoàn thành', 'cl-x7k', checklistTone)}
       ${kpi('Email hôm nay', s.todayEmails, 'Tự gửi lúc 09:00', 'emails')}
-      ${kpi('Quá hạn', s.overdueChecks, 'Cần xử lý ngay', 'checklist', overdueTone)}
+      ${kpi('Quá hạn', s.overdueChecks, 'Cần xử lý ngay', 'cl-x7k', overdueTone)}
     </div>
 
     <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -873,7 +878,7 @@ routes.emails = async () => {
 let orderFilter = { receiver:'', status:'pending', search:'' };
 let orderSort = { field: 'deadline', dir: 'asc' };
 let orderPending = {}; // id → { email_sent?: 0|1, processed?: 0|1 } — unsaved changes
-routes.orders = async () => {
+routes['or-x7k'] = async () => {
   $('#pageTitle').textContent = 'Order Bộ Phận';
   const params = new URLSearchParams();
   if (orderFilter.receiver) params.set('receiver', orderFilter.receiver);
@@ -1040,7 +1045,7 @@ routes.orders = async () => {
 let checklistFilter = 'pending'; // 'all' | 'overdue' | 'today' | 'pending' | 'done' | 'skipped'
 let checklistSearch = '';
 let checklistSort = { field: 'deadline', dir: 'asc' };
-routes.checklist = async () => {
+routes['cl-x7k'] = async () => {
   $('#pageTitle').textContent = 'Checklist tổng hợp';
   const cands = await api.get('/api/candidates');
   const today = todayStr();
