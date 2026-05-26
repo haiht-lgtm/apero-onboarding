@@ -757,205 +757,127 @@ const renderInfoTab = (c) => {
   }, 'Đang lưu...');
 };
 
-// ═══════════ EMAILS PAGE (toàn hệ thống) ═══════════
-let emailFilters = { status:'', email_type:'', search:'' };
-let emailSort = { field: 'scheduled_date', dir: 'asc' };
-routes.emails = async () => {
-  $('#pageTitle').textContent = 'Lịch Email';
-  const params = new URLSearchParams();
-  if (emailFilters.status) params.set('status', emailFilters.status);
-  if (emailFilters.email_type) params.set('email_type', emailFilters.email_type);
-  const rawList = await api.get('/api/emails' + (params.toString()?'?'+params:''));
+// ═══════════ EMAILS PAGE — Timeline UI (Spec UX v1.3) ═══════════
+// Card layout gom theo candidate × 3 giai đoạn, chain strict (prev !sent → locked).
+// Mỗi email có completion toggle ("Đánh dấu hoàn thành / nhận form / etc.")
+let emailFilters = { search:'' };
 
-  // Client-side search filter
-  let list = rawList;
-  if (emailFilters.search) {
-    const q = emailFilters.search.toLowerCase();
-    list = list.filter(e => (e.full_name+' '+(e.subject||'')+' '+(e.receiver||'')+' '+(e.receiver_label||'')+' '+(e.milestone||'')).toLowerCase().includes(q));
-  }
-  // Sort
-  list = [...list].sort((a, b) => {
-    let av = a[emailSort.field], bv = b[emailSort.field];
-    if (typeof av === 'string') { av = (av||'').toLowerCase(); bv = (bv||'').toLowerCase(); }
-    if (av < bv) return emailSort.dir === 'asc' ? -1 : 1;
-    if (av > bv) return emailSort.dir === 'asc' ? 1 : -1;
-    return 0;
-  });
-
-  const chip = (k, v, label) => `<span class="filter-chip px-3 py-1 rounded-full text-xs font-semibold cursor-pointer ${emailFilters[k]===v?'bg-indigo-100 text-indigo-700 border border-indigo-300':'bg-slate-100 text-slate-700'}" data-${k}="${v}">${label}</span>`;
-  const ico = f => emailSort.field !== f ? '<span class="opacity-30">↕</span>' : emailSort.dir==='asc' ? '<span class="text-indigo-600">↑</span>' : '<span class="text-indigo-600">↓</span>';
-  const th = (f, l, extra='') => `<th class="text-left px-5 py-3 cursor-pointer hover:bg-slate-100 select-none whitespace-nowrap ${extra}" data-esort="${f}">${l} ${ico(f)}</th>`;
-
-  // Status label + action button theo display_status (spec UX v1.0)
-  const statusBadge = (e) => {
-    const s = e.display_status || e.status || 'pending';
-    const label = { sent:'Sent', pending:'Pending', warning:'Warning', locked:'Locked', failed:'Failed' }[s] || s;
-    return `<span class="badge badge-${s}"><span class="dot"></span>${label}</span>`;
-  };
-  const actionBtns = (e) => {
-    const s = e.display_status;
-    // Spec: Sent = Xem trước; Pending = Xem trước · Gửi ngay; Warning = Xem trước · Gửi dù vậy; Locked = không có; Failed = Xem trước · Gửi lại
-    if (s === 'locked') return '<span class="text-xs text-slate-400">—</span>';
-    if (s === 'sent') return `<button class="btn btn-secondary btn-sm" data-prev="${e.id}">Xem trước</button>`;
-    if (s === 'pending') return `<button class="btn btn-secondary btn-sm" data-prev="${e.id}">Xem trước</button> <button class="btn btn-primary btn-sm" data-send="${e.id}">Gửi ngay</button>`;
-    if (s === 'warning') return `<button class="btn btn-secondary btn-sm" data-prev="${e.id}">Xem trước</button> <button class="btn btn-sm" data-send="${e.id}" style="background:#854F0B;color:#fff">Gửi dù vậy</button>`;
-    if (s === 'failed') return `<button class="btn btn-secondary btn-sm" data-prev="${e.id}">Xem trước</button> <button class="btn btn-primary btn-sm" data-send="${e.id}">Gửi lại</button>`;
-    return '';
-  };
-
-  $('#content').innerHTML = `
-    <div class="bg-white rounded-xl border border-slate-200 p-3 mb-4 flex gap-2 flex-wrap items-center">
-      <input id="emailSearch" type="text" class="field-input flex-1 min-w-[200px] max-w-md" placeholder="🔍 Tìm theo tên ứng viên / tiêu đề / người nhận..." value="${escapeHtml(emailFilters.search)}"/>
-      <span class="text-xs font-semibold text-slate-500">Trạng thái:</span>
-      ${chip('status','','Tất cả')} ${chip('status','pending','Pending')} ${chip('status','sent','Sent')} ${chip('status','warning','Warning')} ${chip('status','locked','Locked')} ${chip('status','failed','Failed')}
-      <span class="w-3"></span>
-      <span class="text-xs font-semibold text-slate-500">Loại:</span>
-      ${chip('email_type','','Tất cả')} ${chip('email_type','candidate','👤 Ứng viên')} ${chip('email_type','department','🏢 Bộ phận')}
-    </div>
-    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-      ${list.length===0?'<div class="p-10 text-center text-slate-400">Không có email khớp filter</div>':(() => {
-        const pg = paginate(list, 'emails');
-        return `
-      <table class="w-full text-sm">
-        <thead class="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-600">
-          <tr>
-            ${th('priority','Ưu tiên','" style="width:56px')}
-            ${th('receiver','Gửi tới','" style="width:190px')}
-            ${th('subject','Tiêu đề')}
-            ${th('scheduled_date','Lịch gửi','" style="width:96px')}
-            ${th('display_status','Trạng thái','" style="width:90px')}
-            <th class="text-left px-3 py-3" style="width:170px">Hành động</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100">${pg.slice.map(e => {
-          const s = e.display_status || 'pending';
-          const isWarn = s === 'warning';
-          return `<tr>
-            <td class="px-3 py-3"><div class="priority-circle ${s}">${e.priority||'?'}</div></td>
-            <td class="px-3 py-3" style="width:190px"><div class="font-medium">${escapeHtml(e.receiver_label||'')}</div><div class="text-xs text-slate-500 truncate">${escapeHtml(e.receiver||'(chưa có email)')}</div><div class="text-xs text-indigo-600 truncate">UV: ${escapeHtml(e.full_name||'')}</div></td>
-            <td class="px-3 py-3"><div class="font-medium">${escapeHtml(e.subject)}</div><div class="text-xs text-slate-500 mt-0.5">${e.email_type==='department'?'🏢 Bộ phận':'👤 Ứng viên'} · ${e.milestone}</div>${isWarn?'<div class="warning-inline">⚠️ Mốc #'+(e.priority-1)+' chưa hoàn thành — vẫn có thể gửi</div>':''}${e.error?'<div class="text-xs text-red-600 mt-1">'+escapeHtml(e.error)+'</div>':''}</td>
-            <td class="px-3 py-3 text-xs">${fmt(e.scheduled_date)}${e.sent_date?'<div class="text-slate-500">'+fmtDT(e.sent_date)+'</div>':''}</td>
-            <td class="px-3 py-3">${statusBadge(e)}</td>
-            <td class="px-3 py-3">${actionBtns(e)}</td>
-          </tr>`;
-        }).join('')}</tbody>
-      </table>
-      ${renderPagination('emails', pg)}`;
-      })()}
-    </div>
-  `;
-
-  // Search debounced
-  let searchTimer;
-  $('#emailSearch') && ($('#emailSearch').oninput = e => {
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => { emailFilters.search = e.target.value; setPage('emails', 0); render(); }, 200);
-  });
-  // Sort
-  $$('th[data-esort]').forEach(h => h.onclick = () => {
-    const f = h.dataset.esort;
-    if (emailSort.field === f) emailSort.dir = emailSort.dir === 'asc' ? 'desc' : 'asc';
-    else { emailSort.field = f; emailSort.dir = 'asc'; }
-    setPage('emails', 0); render();
-  });
-  $$('[data-status]').forEach(c => c.onclick = () => { emailFilters.status = c.dataset.status; setPage('emails', 0); render(); });
-  $$('[data-email_type]').forEach(c => c.onclick = () => { emailFilters.email_type = c.dataset.email_type; setPage('emails', 0); render(); });
-  $$('[data-prev]').forEach(b => b.onclick = () => previewEmail(b.dataset.prev));
-  $$('[data-send]').forEach(b => b.onclick = withLoading(async function () {
-    const ok = await showConfirm({
-      title: 'Gửi email ngay?',
-      message: 'Email sẽ được gửi qua SMTP đã cấu hình. Bạn có chắc?',
-      icon: '✉️',
-      okLabel: 'Gửi ngay'
-    });
-    if (!ok) return;
-    const r = await api.post(`/api/emails/${this.dataset.send}/send`);
-    if (r.error) toast('❌ '+r.error,'error'); else { toast('✅ Đã gửi','success'); render(); }
-  }, 'Đang gửi...'));
+const EMAIL_STAGES = [
+  { num: 1, name: 'Chuẩn bị', desc: 'Trước ngày vào',  ms: ['D-7','D-5','D-3'] },
+  { num: 2, name: 'Hội nhập', desc: 'Tuần 1 → Tuần 2', ms: ['D0','D+7'] },
+  { num: 3, name: 'Theo dõi', desc: 'Tháng 1 trở đi',  ms: ['D+30','D+60'] }
+];
+// Label nút "đánh dấu hoàn thành" theo từng email
+const EMAIL_COMPLETE_LABEL = {
+  M1: '✓ Đánh dấu đã nhận form',
+  M2: '✓ Đánh dấu thiết bị sẵn sàng',
+  M3: '✓ Đánh dấu tài khoản đã cấp',
+  M4: '✓ Đánh dấu UV đã xác nhận',
+  M5: '✓ Đánh dấu onboard xong',
+  M6: '✓ Đánh dấu đã phản hồi',
+  M7: '✓ Đánh dấu đã follow-up',
+  M8: '✓ Đánh dấu đã tổng kết'
+};
+// Info bar context — đang chờ "ai làm gì" sau khi email đã sent
+const EMAIL_WAITING_FOR = {
+  M1: 'điền form thông tin nhân sự',
+  M2: 'HCNS chuẩn bị thiết bị',
+  M3: 'IT cấp tài khoản (Email + Confluence + MISA)',
+  M4: 'ứng viên xác nhận lịch onboard',
+  M5: 'ứng viên hoàn tất ngày đầu',
+  M6: 'ứng viên phản hồi check-in tuần 1',
+  M7: 'ứng viên follow-up tháng 1',
+  M8: 'ứng viên hoàn tất tổng kết'
 };
 
-// ═══════════ EMAIL TIMELINE — HIDDEN ADMIN VIEW (/em-x7k) ═══════════
-// UI dạng card timeline gom theo 3 giai đoạn × candidate. Khớp Spec UX v1.2
-let emTimelineFilter = { search: '' };
-routes['em-x7k'] = async () => {
-  $('#pageTitle').textContent = 'Lịch Email — Timeline (Admin)';
+function renderEmailCard(e) {
+  const s = e.display_status || 'pending';
+  const isCompleted = !!e.is_completed;
+  const dateMain = fmt(e.scheduled_date) || '—';
+  const sentTime = e.sent_date ? fmtDT(e.sent_date) : '';
+  const typeIcon = e.email_type === 'department' ? '🏢' : '👤';
+  const typeLabel = e.email_type === 'department' ? (e.receiver_label || 'Bộ phận') : 'Ứng viên';
+
+  // Display label (top-left)
+  let displayLabel;
+  if (s === 'sent') displayLabel = isCompleted ? '✓ HOÀN THÀNH' : '⏱ ĐANG CHỜ PHẢN HỒI';
+  else if (s === 'pending') displayLabel = '⏱ CHỜ GỬI';
+  else if (s === 'locked') displayLabel = '🔒 CHƯA TỚI LƯỢT';
+  else if (s === 'failed') displayLabel = '✕ GỬI THẤT BẠI';
+  else displayLabel = s.toUpperCase();
+
+  // Info bar
+  let infoBar = '';
+  if (s === 'sent') {
+    if (isCompleted) {
+      infoBar = `<div class="em-info-bar em-info-success">✓ Đã hoàn thành${e.completed_date?' lúc '+fmtDT(e.completed_date):''}</div>`;
+    } else {
+      const waitWho = EMAIL_WAITING_FOR[e.template_key] || 'phản hồi';
+      infoBar = `<div class="em-info-bar">ⓘ Đã gửi · Đang chờ <span class="hl">${escapeHtml(waitWho)}</span></div>`;
+    }
+  } else if (s === 'locked') {
+    infoBar = `<div class="em-info-bar">🔒 Phải gửi mốc #${(e.priority||1)-1} trước khi gửi mốc này</div>`;
+  } else if (s === 'failed') {
+    infoBar = `<div class="em-info-bar">✕ ${escapeHtml(e.error || 'Gửi thất bại — kiểm tra cấu hình SMTP')}</div>`;
+  } else {
+    infoBar = `<div class="em-info-bar">ⓘ Sẵn sàng gửi · scheduled ${dateMain}</div>`;
+  }
+
+  // Actions
+  let actionsLeft = `<button class="btn btn-secondary btn-sm" data-prev="${e.id}">Xem mail</button>`;
+  if (s === 'sent') actionsLeft += ` <button class="btn btn-secondary btn-sm" data-remind="${e.id}">Nhắc lại</button>`;
+  if (s === 'pending') actionsLeft += ` <button class="btn btn-primary btn-sm" data-send="${e.id}">Gửi ngay</button>`;
+  if (s === 'failed') actionsLeft += ` <button class="btn btn-primary btn-sm" data-send="${e.id}">Gửi lại</button>`;
+
+  let actionRight = '';
+  if (s === 'sent') {
+    if (isCompleted) {
+      actionRight = `<button class="btn btn-secondary btn-sm btn-pull-right" data-uncomplete="${e.id}">↶ Hủy hoàn thành</button>`;
+    } else {
+      const lbl = EMAIL_COMPLETE_LABEL[e.template_key] || '✓ Đánh dấu hoàn thành';
+      actionRight = `<button class="btn btn-success btn-sm btn-pull-right" data-complete="${e.id}">${lbl}</button>`;
+    }
+  }
+
+  const cardCls = s === 'sent' ? (isCompleted ? 'is-completed' : 'is-pending') : `is-${s}`;
+
+  return `<div class="em-card ${cardCls}">
+    <div class="em-dot">${e.priority || '?'}</div>
+    <div class="em-card-top">
+      <span class="em-card-status">${displayLabel}</span>
+      <span class="em-card-date">${dateMain}</span>
+    </div>
+    <div class="em-card-subject">${escapeHtml(e.subject)}</div>
+    <div class="em-card-meta">
+      <span>${typeIcon} ${escapeHtml(typeLabel)}</span><span class="sep">·</span>
+      <span>${escapeHtml(e.full_name||'')}</span><span class="sep">·</span>
+      <span>${e.milestone}</span>
+    </div>
+    ${infoBar}
+    <div class="em-card-actions">${actionsLeft}${actionRight}</div>
+  </div>`;
+}
+
+routes.emails = async () => {
+  $('#pageTitle').textContent = 'Lịch gửi mail';
   const all = await api.get('/api/emails');
 
-  const STAGES = [
-    { num: 1, name: 'Chuẩn bị', desc: 'Trước ngày vào',     ms: ['D-7','D-5','D-3'] },
-    { num: 2, name: 'Hội nhập', desc: 'Tuần 1 → Tuần 2',     ms: ['D0','D+7'] },
-    { num: 3, name: 'Theo dõi', desc: 'Tháng 1 trở đi',     ms: ['D+30','D+60'] }
-  ];
-
-  // Filter search (candidate name / subject)
-  const q = (emTimelineFilter.search || '').trim().toLowerCase();
-  const list = !q ? all : all.filter(e =>
-    (e.full_name + ' ' + (e.subject||'') + ' ' + (e.receiver||'')).toLowerCase().includes(q)
+  // Search filter
+  const q = (emailFilters.search || '').trim().toLowerCase();
+  const filtered = !q ? all : all.filter(e =>
+    (e.full_name+' '+(e.subject||'')+' '+(e.receiver||'')+' '+(e.receiver_label||'')).toLowerCase().includes(q)
   );
 
   // Group by candidate
   const byCand = new Map();
-  list.forEach(e => {
+  filtered.forEach(e => {
     if (!byCand.has(e.candidate_id)) byCand.set(e.candidate_id, { name: e.full_name, emails: [] });
     byCand.get(e.candidate_id).emails.push(e);
   });
 
-  const STATUS_LABEL = {
-    sent: 'Đã gửi', pending: 'Đang chờ phản hồi', warning: 'Cảnh báo · Mốc trước chưa sent',
-    locked: 'Chưa tới lượt', failed: 'Gửi thất bại'
-  };
-  const STATUS_ICON = { sent:'✓', pending:'⏱', warning:'⚠', locked:'🔒', failed:'✕' };
-
-  const renderCard = (e, stageEmailCount, idxInStage) => {
-    const s = e.display_status || 'pending';
-    const dateMain = fmt(e.scheduled_date) || '—';
-    const sentTime = e.sent_date ? fmtDT(e.sent_date) : '';
-    const typeIcon = e.email_type === 'department' ? '🏢' : '👤';
-    const typeLabel = e.email_type === 'department' ? (e.receiver_label || 'Bộ phận') : 'Ứng viên';
-
-    // Info bar: contextual message theo trạng thái
-    let infoBar = '';
-    if (s === 'sent' && e.template_key === 'M1') {
-      infoBar = `<div class="em-info-bar">ⓘ Đã gửi · Đang chờ ứng viên <span class="hl">điền form thông tin nhân sự</span></div>`;
-    } else if (s === 'sent') {
-      infoBar = `<div class="em-info-bar">ⓘ Đã gửi${sentTime?' lúc '+sentTime:''}</div>`;
-    } else if (s === 'warning') {
-      infoBar = `<div class="em-info-bar">⚠ Mốc #${(e.priority||1)-1} chưa hoàn thành — vẫn có thể <span class="hl">gửi dù vậy</span></div>`;
-    } else if (s === 'locked') {
-      infoBar = `<div class="em-info-bar">🔒 Chờ mốc trước đó được xử lý xong</div>`;
-    } else if (s === 'failed') {
-      infoBar = `<div class="em-info-bar">✕ ${escapeHtml(e.error || 'Gửi thất bại — kiểm tra log')}</div>`;
-    } else {
-      infoBar = `<div class="em-info-bar">ⓘ Sẵn sàng gửi · scheduled ${dateMain}</div>`;
-    }
-
-    // Action buttons theo trạng thái
-    let actions = `<button class="btn btn-secondary btn-sm" data-prev="${e.id}">Xem mail</button>`;
-    if (s === 'pending') actions += ` <button class="btn btn-primary btn-sm" data-send="${e.id}">Gửi ngay</button>`;
-    if (s === 'warning') actions += ` <button class="btn btn-sm" data-send="${e.id}" style="background:#854F0B;color:#fff">Gửi dù vậy</button>`;
-    if (s === 'failed') actions += ` <button class="btn btn-primary btn-sm" data-send="${e.id}">Gửi lại</button>`;
-    if (s === 'sent') actions += ` <button class="btn btn-secondary btn-sm" data-remind="${e.id}">Nhắc lại</button>`;
-
-    return `<div class="em-card is-${s}">
-      <div class="em-dot">${e.priority || idxInStage+1}</div>
-      <div class="em-card-top">
-        <span class="em-card-status">${STATUS_ICON[s]||'•'} ${STATUS_LABEL[s]||s}</span>
-        <span class="em-card-date">${dateMain}</span>
-      </div>
-      <div class="em-card-subject">${escapeHtml(e.subject)}</div>
-      <div class="em-card-meta">
-        <span>${typeIcon} ${escapeHtml(typeLabel)}</span><span class="sep">·</span>
-        <span>${escapeHtml(e.full_name||'')}</span><span class="sep">·</span>
-        <span>${e.milestone}</span>
-      </div>
-      ${infoBar}
-      <div class="em-card-actions">${actions}</div>
-    </div>`;
-  };
-
   let html = `<div class="bg-white rounded-xl border border-slate-200 p-3 mb-4 flex gap-2 flex-wrap items-center">
-    <input id="emTlSearch" type="text" class="field-input flex-1 min-w-[240px] max-w-md" placeholder="🔍 Tìm theo ứng viên / tiêu đề / người nhận..." value="${escapeHtml(emTimelineFilter.search)}"/>
-    <span class="text-xs text-slate-500">${list.length} email · ${byCand.size} ứng viên</span>
+    <input id="emailSearch" type="text" class="field-input flex-1 min-w-[240px] max-w-md" placeholder="🔍 Tìm theo ứng viên / tiêu đề / người nhận..." value="${escapeHtml(emailFilters.search||'')}"/>
+    <span class="text-xs text-slate-500">${filtered.length} email · ${byCand.size} ứng viên</span>
   </div>`;
 
   if (byCand.size === 0) {
@@ -972,8 +894,9 @@ routes['em-x7k'] = async () => {
         <button class="btn btn-secondary btn-sm" data-route="candidates" data-id="${cid}">Mở hồ sơ →</button>
       </div>`;
 
-    STAGES.forEach(stage => {
-      const stageEmails = emails.filter(e => stage.ms.includes(e.milestone));
+    EMAIL_STAGES.forEach(stage => {
+      const stageEmails = emails.filter(e => stage.ms.includes(e.milestone))
+                                .sort((a,b) => (a.priority||0)-(b.priority||0));
       if (stageEmails.length === 0) return;
       html += `<div class="em-stage">
         <div class="em-stage-num">${stage.num}</div>
@@ -985,7 +908,7 @@ routes['em-x7k'] = async () => {
             </div>
           </div>
           <div class="em-timeline">
-            ${stageEmails.map((e, i) => renderCard(e, stageEmails.length, i)).join('')}
+            ${stageEmails.map(renderEmailCard).join('')}
           </div>
         </div>
       </div>`;
@@ -997,13 +920,12 @@ routes['em-x7k'] = async () => {
   $('#content').innerHTML = html;
 
   // Search debounced
-  let tlTimer;
-  $('#emTlSearch') && ($('#emTlSearch').oninput = ev => {
-    clearTimeout(tlTimer);
-    tlTimer = setTimeout(() => { emTimelineFilter.search = ev.target.value; render(); }, 200);
+  let st;
+  $('#emailSearch') && ($('#emailSearch').oninput = ev => {
+    clearTimeout(st);
+    st = setTimeout(() => { emailFilters.search = ev.target.value; render(); }, 200);
   });
 
-  // Wire actions
   $$('[data-prev]').forEach(b => b.onclick = () => previewEmail(b.dataset.prev));
   $$('[data-send]').forEach(b => b.onclick = withLoading(async function () {
     const ok = await showConfirm({ title:'Gửi email ngay?', message:'Email sẽ được gửi qua SMTP đã cấu hình.', icon:'✉️', okLabel:'Gửi ngay' });
@@ -1017,7 +939,18 @@ routes['em-x7k'] = async () => {
     const r = await api.post(`/api/emails/${this.dataset.remind}/send`);
     if (r.error) toast('❌ '+r.error,'error'); else { toast('✅ Đã nhắc lại','success'); render(); }
   }, 'Đang gửi...'));
+  $$('[data-complete]').forEach(b => b.onclick = withLoading(async function () {
+    const r = await api.put('/api/emails/'+this.dataset.complete, { is_completed: 1 });
+    if (r.error) toast('❌ '+r.error,'error'); else { toast('✅ Đánh dấu hoàn thành','success'); render(); }
+  }, 'Đang cập nhật...'));
+  $$('[data-uncomplete]').forEach(b => b.onclick = withLoading(async function () {
+    const r = await api.put('/api/emails/'+this.dataset.uncomplete, { is_completed: 0 });
+    if (r.error) toast('❌ '+r.error,'error'); else { toast('↶ Đã hủy hoàn thành','success'); render(); }
+  }, 'Đang cập nhật...'));
 };
+
+// Alias /em-x7k → cùng UI với /emails (kept for backwards-compat với URL bí mật cũ)
+routes['em-x7k'] = (...args) => routes.emails(...args);
 
 // ═══════════ ORDERS PAGE (toàn hệ thống) ═══════════
 let orderFilter = { receiver:'', status:'pending', search:'' };

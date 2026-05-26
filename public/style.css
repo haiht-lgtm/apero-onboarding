@@ -176,7 +176,8 @@ table tbody tr:hover{background:#fafbff}
 }
 .em-card:hover{ border-color:#cbd5e1 }
 .em-card.is-pending{ border-color:#7c3aed }
-.em-card.is-warning{ border-color:#f5a623 }
+.em-card.is-completed{ border-color:#16a34a; background:#f0fdf4 }
+.em-card.is-locked{ border-color:#e2e8f0; opacity:.7 }
 .em-card.is-failed{ border-color:#dc2626 }
 .em-card.is-sent{ border-color:#86efac }
 .em-dot{
@@ -186,15 +187,14 @@ table tbody tr:hover{background:#fafbff}
   display:grid; place-items:center; font-size:12px; font-weight:700;
 }
 .em-card.is-pending .em-dot{ background:#7c3aed; color:#fff; border-color:#7c3aed }
-.em-card.is-sent .em-dot{ background:#86efac; color:#0f5132; border-color:#86efac }
-.em-card.is-warning .em-dot{ background:#f5a623; color:#fff; border-color:#f5a623 }
+.em-card.is-completed .em-dot{ background:#16a34a; color:#fff; border-color:#16a34a }
+.em-card.is-locked .em-dot{ background:#f1f5f9; color:#94a3b8; border-color:#cbd5e1 }
 .em-card.is-failed .em-dot{ background:#dc2626; color:#fff; border-color:#dc2626 }
 
 .em-card-top{ display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:6px }
 .em-card-status{ font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; display:inline-flex; align-items:center; gap:5px }
 .em-card.is-pending .em-card-status{ color:#7c3aed }
-.em-card.is-sent .em-card-status{ color:#15803d }
-.em-card.is-warning .em-card-status{ color:#92400e }
+.em-card.is-completed .em-card-status{ color:#15803d }
 .em-card.is-locked .em-card-status{ color:#94a3b8 }
 .em-card.is-failed .em-card-status{ color:#b91c1c }
 .em-card-date{ color:#94a3b8; font-size:12px }
@@ -209,6 +209,8 @@ table tbody tr:hover{background:#fafbff}
   display:flex; align-items:center; gap:8px;
 }
 .em-info-bar .hl{ color:#c4b5fd; font-weight:600 }
+.em-info-bar.em-info-success{ background:#15803d; color:#dcfce7 }
+.em-info-bar.em-info-success .hl{ color:#fff }
 
 .em-card-actions{ display:flex; gap:8px; flex-wrap:wrap; margin-top:12px }
 .em-card-actions .btn-pull-right{ margin-left:auto }
