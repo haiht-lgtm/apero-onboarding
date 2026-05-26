@@ -708,16 +708,27 @@ const renderFollowupTab = async (cid) => {
   $('#tabBody').innerHTML = order.filter(m => groups[m]).map(m => {
     const askedCount = groups[m].filter(x => x.asked).length;
     return `<div class="bg-white rounded-xl border border-slate-200 mb-4 overflow-hidden">
-      <div class="px-5 py-2 border-b border-slate-200 flex items-center gap-2"><span class="ms-badge ${msClass(m)}">${m}</span><span class="text-xs text-slate-500">${askedCount}/${groups[m].length} đã hỏi</span></div>
-      <div class="p-4 space-y-4">${groups[m].map((q,i) => `
-        <div class="border-b border-slate-100 last:border-b-0 pb-4 last:pb-0">
-          <div class="flex gap-2 items-start mb-2">
-            <input type="checkbox" data-asked="${q.id}" ${q.asked?'checked':''} class="w-4 h-4 mt-1 accent-indigo-600 cursor-pointer" title="Đánh dấu đã hỏi"/>
-            <div class="font-medium ${q.asked?'text-slate-500':''}"><b>${i+1}.</b> ${escapeHtml(q.question)}</div>
+      <div class="px-5 py-2 border-b border-slate-200 flex items-center gap-2">
+        <span class="ms-badge ${msClass(m)}">${m}</span>
+        <span class="text-xs text-slate-500">${askedCount}/${groups[m].length} đã hỏi</span>
+      </div>
+      <div>${groups[m].map((q,i) => {
+        const hasResp = !!(q.response||'').trim();
+        // Open mặc định nếu đã có phản hồi (để HR nhìn nội dung); nếu mới — collapse
+        const openAttr = hasResp ? 'open' : '';
+        return `<details class="fu-item" ${openAttr}>
+          <summary class="fu-summary">
+            <input type="checkbox" data-asked="${q.id}" ${q.asked?'checked':''} class="w-4 h-4 mt-1 accent-indigo-600 cursor-pointer flex-shrink-0" title="Đánh dấu đã hỏi" onclick="event.stopPropagation()"/>
+            <div class="fu-question ${q.asked?'is-asked':''}"><b>${i+1}.</b> ${escapeHtml(q.question)}</div>
+            ${hasResp?'<span class="fu-badge">✓ có phản hồi</span>':''}
+            <span class="fu-caret">▾</span>
+          </summary>
+          <div class="fu-body">
+            <textarea data-resp="${q.id}" placeholder="Phản hồi của ứng viên / ghi chú từ buổi check-in..." class="field-input text-sm" style="min-height:80px;font-family:inherit">${escapeHtml(q.response||'')}</textarea>
+            ${q.asked_date?`<div class="text-xs text-slate-500 mt-2">✓ Đã hỏi lúc ${fmtDT(q.asked_date)}</div>`:''}
           </div>
-          <textarea data-resp="${q.id}" placeholder="Phản hồi của ứng viên / ghi chú từ buổi check-in..." class="field-input text-sm" style="min-height:70px;font-family:inherit">${escapeHtml(q.response||'')}</textarea>
-          ${q.asked_date?`<div class="text-xs text-slate-500 mt-1">✓ Đã hỏi lúc ${fmtDT(q.asked_date)}</div>`:''}
-        </div>`).join('')}</div>
+        </details>`;
+      }).join('')}</div>
     </div>`;
   }).join('');
 

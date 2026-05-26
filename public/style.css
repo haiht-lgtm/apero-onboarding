@@ -153,6 +153,30 @@ code{background:#f3f4f6;border:1px solid #e5e7eb;padding:1px 6px;border-radius:4
 /* Table hover */
 table tbody tr:hover{background:#fafbff}
 
+/* ===== FOLLOW-UP ACCORDION (per-candidate, click to expand) ===== */
+.fu-item{ border-bottom:1px solid #f1f5f9 }
+.fu-item:last-child{ border-bottom:none }
+.fu-item > summary{ list-style:none; cursor:pointer }
+.fu-item > summary::-webkit-details-marker{ display:none }
+.fu-summary{
+  display:flex; gap:10px; align-items:flex-start;
+  padding:14px 18px; transition:.15s;
+  user-select:none;
+}
+.fu-summary:hover{ background:#f8fafc }
+.fu-item[open] > .fu-summary{ background:#faf5ff; border-bottom:1px solid #f1f5f9 }
+.fu-question{ flex:1; font-size:14px; line-height:1.5; color:#334155; font-weight:500 }
+.fu-question.is-asked{ color:#94a3b8; text-decoration:line-through; text-decoration-thickness:.5px }
+.fu-question b{ color:#6366f1; margin-right:4px }
+.fu-badge{
+  font-size:10px; padding:3px 8px; border-radius:12px;
+  background:#dcfce7; color:#15803d; font-weight:600; white-space:nowrap;
+  flex-shrink:0; align-self:center;
+}
+.fu-caret{ font-size:11px; color:#94a3b8; transition:transform .2s; margin-top:4px; flex-shrink:0 }
+.fu-item[open] .fu-caret{ transform:rotate(180deg); color:#6366f1 }
+.fu-body{ padding:12px 18px 16px 40px; background:#fefefe }
+
 /* ===== EMAIL TIMELINE CARDS (admin hidden /em-x7k) ===== */
 .em-stage{ display:grid; grid-template-columns:auto 1fr; gap:16px; margin-bottom:28px }
 .em-stage-num{
