@@ -797,7 +797,7 @@ routes.emails = async () => {
     if (s === 'locked') return '<span class="text-xs text-slate-400">—</span>';
     if (s === 'sent') return `<button class="btn btn-secondary btn-sm" data-prev="${e.id}">Xem trước</button>`;
     if (s === 'pending') return `<button class="btn btn-secondary btn-sm" data-prev="${e.id}">Xem trước</button> <button class="btn btn-primary btn-sm" data-send="${e.id}">Gửi ngay</button>`;
-    if (s === 'warning') return `<button class="btn btn-secondary btn-sm" data-prev="${e.id}">Xem trước</button> <button class="btn btn-sm" data-send="${e.id}" style="background:#f5a623;color:#fff">Gửi dù vậy</button>`;
+    if (s === 'warning') return `<button class="btn btn-secondary btn-sm" data-prev="${e.id}">Xem trước</button> <button class="btn btn-sm" data-send="${e.id}" style="background:#854F0B;color:#fff">Gửi dù vậy</button>`;
     if (s === 'failed') return `<button class="btn btn-secondary btn-sm" data-prev="${e.id}">Xem trước</button> <button class="btn btn-primary btn-sm" data-send="${e.id}">Gửi lại</button>`;
     return '';
   };
@@ -1289,7 +1289,7 @@ routes.templates = async () => {
   const list = await api.get('/api/email-templates');
   $('#content').innerHTML = `
     <div class="bg-white rounded-xl border border-slate-200 p-5 mb-5">
-      <p class="text-sm text-slate-600 m-0">Quản lý 7 mẫu email tự động (E1-E7). Sửa subject / body bất kỳ → bấm <b>Lưu</b> → hệ thống hỏi có muốn áp dụng cho email <b>pending</b> hay không.</p>
+      <p class="text-sm text-slate-600 m-0">Quản lý 8 mẫu email tự động (M1-M8 — 3 giai đoạn). Sửa subject / body bất kỳ → bấm <b>Lưu</b> → hệ thống hỏi có muốn áp dụng cho email <b>pending</b> hay không.</p>
       <p class="text-sm text-slate-600 mt-3 m-0"><b>Placeholder ứng viên:</b>
         <code>{{full_name}}</code> <code>{{job_title}}</code> <code>{{department}}</code> <code>{{manager_name}}</code> <code>{{level}}</code> <code>{{email}}</code> <code>{{phone}}</code>
       </p>

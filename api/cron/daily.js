@@ -58,15 +58,19 @@ module.exports = async (req, res) => {
           status: 'sent',
           error: null
         });
-        const orderKeyMap = { E2: 'O1', E3: 'O2', E4: 'O3', E5: 'O4' };
-        const ok = orderKeyMap[e.template_key];
-        if (ok) {
-          const cur = (await store.getStateItem(c.id, 'order', ok)) || {};
-          await store.setStateItem(c.id, 'order', ok, {
-            ...cur,
-            email_sent: true,
-            email_sent_date: new Date().toISOString()
-          });
+        // Cascade M2 → O1; M3 → O2+O3+O4 (Spec UX v1.1)
+        const orderKeyMap = { M2: ['O1'], M3: ['O2', 'O3', 'O4'] };
+        const orderKeys = orderKeyMap[e.template_key];
+        if (orderKeys) {
+          const now = new Date().toISOString();
+          for (const ok of orderKeys) {
+            const cur = (await store.getStateItem(c.id, 'order', ok)) || {};
+            await store.setStateItem(c.id, 'order', ok, {
+              ...cur,
+              email_sent: true,
+              email_sent_date: cur.email_sent_date || now
+            });
+          }
         }
         sent++;
         results.push({ candidate: c.full_name, key: e.template_key, status: 'sent' });
