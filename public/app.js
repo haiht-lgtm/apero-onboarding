@@ -563,56 +563,79 @@ const renderCandidateDetail = async (id, tab='emails') => {
 
 const renderEmailsTab = async (cid) => {
   const emails = await api.get(`/api/candidates/${cid}/emails`);
-  $('#tabBody').innerHTML = `<div class="bg-white rounded-xl border border-slate-200 p-5">
-    <div class="timeline">${emails.map(e => `
-      <div class="tl-item">
-        <div class="tl-dot ${e.status}"></div>
-        <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
-          <div class="flex justify-between items-start gap-2 flex-wrap">
-            <div>
-              <span class="ms-badge ${msClass(e.milestone)}">${e.milestone}</span>
-              <span class="ml-2 text-xs font-semibold ${e.email_type==='department'?'text-amber-700':'text-blue-700'}">${e.email_type==='department'?'🏢 '+escapeHtml(e.receiver_label||'Bộ phận'):'👤 Ứng viên'}</span>
-            </div>
-            <span class="ms-badge st-${e.status}">${e.status}</span>
-          </div>
-          <div class="font-semibold mt-1">${escapeHtml(e.subject)}</div>
-          <div class="text-xs text-slate-500 mt-1">📧 Tới: ${escapeHtml(e.receiver || '(chưa cấu hình)')} · 📅 ${fmt(e.scheduled_date)} ${e.sent_date?'· Đã gửi: '+fmtDT(e.sent_date):''}</div>
-          ${e.error?`<div class="text-xs text-red-600 mt-1">❌ ${escapeHtml(e.error)}</div>`:''}
-          <div class="flex gap-2 mt-2">
-            <button class="btn btn-secondary btn-sm" data-prev="${e.id}">Preview</button>
-            ${e.sent?'':'<button class="btn btn-primary btn-sm" data-send="'+e.id+'">Gửi ngay</button>'}
-            <label class="flex items-center gap-1 text-xs text-slate-600 ml-2"><input type="checkbox" data-toggle="${e.id}" ${e.sent?'checked':''}/> Đã gửi (manual)</label>
+
+  // Dùng card timeline giống trang Lịch gửi mail — gom theo 3 giai đoạn
+  let html = '<div class="bg-white rounded-xl border border-slate-200 p-5">';
+  let any = false;
+  EMAIL_STAGES.forEach(stage => {
+    const stageEmails = emails.filter(e => stage.ms.includes(e.milestone))
+                              .sort((a,b) => (a.priority||0)-(b.priority||0));
+    if (stageEmails.length === 0) return;
+    any = true;
+    html += `<div class="em-stage">
+      <div class="em-stage-num">${stage.num}</div>
+      <div>
+        <div class="em-stage-head">
+          <div>
+            <h3>${stage.name}</h3>
+            <p>${stage.desc} · ${stageEmails.length} email tuần tự</p>
           </div>
         </div>
-      </div>`).join('')}</div></div>`;
+        <div class="em-timeline">
+          ${stageEmails.map(renderEmailCard).join('')}
+        </div>
+      </div>
+    </div>`;
+  });
+  if (!any) html += '<div class="text-center text-slate-400 py-8">Chưa có email (kiểm tra ngày đi làm)</div>';
+  html += '</div>';
+  $('#tabBody').innerHTML = html;
 
   $$('[data-prev]').forEach(b => b.onclick = () => previewEmail(b.dataset.prev));
   $$('[data-send]').forEach(b => b.onclick = withLoading(async function () {
-    const ok = await showConfirm({
-      title: 'Gửi email ngay?',
-      message: 'Email sẽ được gửi qua SMTP đã cấu hình. Bạn có chắc?',
-      icon: '✉️',
-      okLabel: 'Gửi ngay'
-    });
+    const ok = await showConfirm({ title:'Gửi email ngay?', message:'Email sẽ được gửi qua SMTP đã cấu hình.', icon:'✉️', okLabel:'Gửi ngay' });
     if (!ok) return;
     const r = await api.post(`/api/emails/${this.dataset.send}/send`);
     if (r.error) toast('❌ '+r.error,'error'); else { toast('✅ Đã gửi','success'); renderEmailsTab(cid); }
   }, 'Đang gửi...'));
-  $$('[data-toggle]').forEach(cb => cb.onchange = async () => {
-    await api.put('/api/emails/'+cb.dataset.toggle, { sent: cb.checked?1:0 });
-    toast('💾 Đã lưu','success');
-  });
+  $$('[data-remind]').forEach(b => b.onclick = withLoading(async function () {
+    const ok = await showConfirm({ title:'Gửi nhắc lại?', message:'Email này đã gửi rồi — gửi nhắc lại cho người nhận?', icon:'🔔', okLabel:'Nhắc lại' });
+    if (!ok) return;
+    const r = await api.post(`/api/emails/${this.dataset.remind}/send`);
+    if (r.error) toast('❌ '+r.error,'error'); else { toast('✅ Đã nhắc lại','success'); renderEmailsTab(cid); }
+  }, 'Đang gửi...'));
+  $$('[data-complete]').forEach(b => b.onclick = withLoading(async function () {
+    const r = await api.put('/api/emails/'+this.dataset.complete, { is_completed: 1 });
+    if (r.error) toast('❌ '+r.error,'error'); else { toast('✅ Đánh dấu hoàn thành','success'); renderEmailsTab(cid); }
+  }, 'Đang cập nhật...'));
+  $$('[data-uncomplete]').forEach(b => b.onclick = withLoading(async function () {
+    const r = await api.put('/api/emails/'+this.dataset.uncomplete, { is_completed: 0 });
+    if (r.error) toast('❌ '+r.error,'error'); else { toast('↶ Đã hủy hoàn thành','success'); renderEmailsTab(cid); }
+  }, 'Đang cập nhật...'));
 };
 
 const previewEmail = async (id) => {
   const e = await api.get(`/api/emails/${id}/preview`);
+  const recv = escapeHtml(e.receiver || '(chưa có email)');
+  const recvLabel = escapeHtml(e.receiver_label || '');
   showModal({
-    title: 'Preview Email',
+    title: '✉️ Xem trước email',
     lg: true,
     body: `
-      <div class="text-xs text-slate-500 mb-1">Tới: <b>${escapeHtml(e.receiver_label||'')}</b> · ${escapeHtml(e.receiver||'(chưa có email)')}</div>
-      <div class="font-semibold mb-3">${escapeHtml(e.subject)}</div>
-      <pre class="bg-slate-50 border border-slate-200 p-3 rounded-lg text-sm whitespace-pre-wrap font-sans">${escapeHtml(e.body)}</pre>
+      <div class="mail-preview">
+        <div class="mail-preview-head">
+          <div class="mail-preview-subject">${escapeHtml(e.subject)}</div>
+          <div class="mail-preview-meta">
+            <div class="mail-row"><span class="mail-from-avatar">A</span>
+              <div>
+                <div class="mail-from-name">APERO Technologies Group <span class="mail-from-addr">&lt;recruitment@apero.vn&gt;</span></div>
+                <div class="mail-to">tới <b>${recvLabel||recv}</b>${recvLabel?' · '+recv:''}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="mail-preview-body">${escapeHtml(e.body).replace(/\n/g,'<br>')}</div>
+      </div>
     `,
     okLabel: null
   });
