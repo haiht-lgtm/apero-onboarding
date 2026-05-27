@@ -546,7 +546,6 @@ const renderCandidateDetail = async (id, tab='emails') => {
     <div class="tabs">
       <div class="tab ${tab==='emails'?'active':''}" data-tab="emails">📧 Email</div>
       <div class="tab ${tab==='orders'?'active':''}" data-tab="orders">📦 Order Bộ Phận</div>
-      <div class="tab ${tab==='checklist'?'active':''}" data-tab="checklist">✅ Checklist (${done}/${total})</div>
       <div class="tab ${tab==='followup'?'active':''}" data-tab="followup">❓ Follow-up</div>
       <div class="tab ${tab==='info'?'active':''}" data-tab="info">ℹ️ Sửa thông tin</div>
     </div>
