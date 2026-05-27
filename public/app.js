@@ -644,28 +644,25 @@ const renderOrdersTab = async (cid) => {
   const orders = await api.get(`/api/candidates/${cid}/orders`);
 
   const orderCard = (o) => {
-    const overdue = o.deadline < todayStr() && !o.processed;
-    // Status: processed → completed; email_sent → pending; else → locked-ish (chưa gửi)
+    // Status: processed → completed; email_sent → pending; else → chưa gửi (todo)
     let s, label;
     if (o.processed) { s = 'completed'; label = '✓ ĐÃ XỬ LÝ XONG'; }
     else if (o.email_sent) { s = 'pending'; label = '⏱ ĐÃ GỬI · CHỜ XỬ LÝ'; }
-    else { s = overdue ? 'failed' : 'todo'; label = '○ CHƯA GỬI ORDER'; }
+    else { s = 'todo'; label = '○ CHƯA GỬI ORDER'; }
 
     let infoBar;
     if (o.processed) infoBar = `<div class="em-info-bar em-info-success">✓ Hoàn tất${o.processed_date?' lúc '+fmtDT(o.processed_date):''}</div>`;
     else if (o.email_sent) infoBar = `<div class="em-info-bar">ⓘ Đã gửi order${o.email_sent_date?' lúc '+fmtDT(o.email_sent_date):''} · Đang chờ <span class="hl">${escapeHtml(o.receiver)}</span> xử lý</div>`;
-    else infoBar = `<div class="em-info-bar">○ Chưa gửi order cho ${escapeHtml(o.receiver)}${overdue?' · <span class="hl">QUÁ HẠN</span>':''}</div>`;
+    else infoBar = `<div class="em-info-bar">○ Chưa gửi order cho ${escapeHtml(o.receiver)}</div>`;
 
     return `<div class="em-card is-${s}">
       <div class="em-dot">📦</div>
       <div class="em-card-top">
         <span class="em-card-status">${label}</span>
-        <span class="em-card-date ${overdue?'text-red-600 font-semibold':''}">Hạn ${fmt(o.deadline)}</span>
       </div>
       <div class="em-card-subject">${escapeHtml(o.order_type)}</div>
       <div class="em-card-meta">
-        <span>🏢 ${escapeHtml(o.receiver)}</span><span class="sep">·</span>
-        <span>${o.milestone}</span>
+        <span>🏢 ${escapeHtml(o.receiver)}</span>
       </div>
       <div class="text-sm text-slate-600 mt-1">${escapeHtml(o.content||'')}</div>
       ${infoBar}
