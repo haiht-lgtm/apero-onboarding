@@ -633,7 +633,7 @@ const previewEmail = async (id) => {
             </div>
           </div>
         </div>
-        <div class="mail-preview-body">${escapeHtml(e.body).replace(/\n/g,'<br>')}</div>
+        <div class="mail-preview-body">${e.body_html || escapeHtml(e.body).replace(/\n/g,'<br>')}${e.signature_html || ''}</div>
       </div>
     `,
     okLabel: null
