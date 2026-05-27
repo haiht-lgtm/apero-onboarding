@@ -643,23 +643,45 @@ const previewEmail = async (id) => {
 
 const renderOrdersTab = async (cid) => {
   const orders = await api.get(`/api/candidates/${cid}/orders`);
-  $('#tabBody').innerHTML = `<div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-    <table class="w-full text-sm">
-      <thead class="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-600">
-        <tr><th class="text-left px-5 py-3">Mốc</th><th class="text-left px-5 py-3">Order</th><th class="text-left px-5 py-3">Người phụ trách</th><th class="text-left px-5 py-3">Hạn</th><th class="text-left px-5 py-3">Đã gửi email</th><th class="text-left px-5 py-3">Đã xử lý</th><th class="text-left px-5 py-3">Ghi chú</th></tr>
-      </thead>
-      <tbody class="divide-y divide-slate-100">${orders.map(o => `
-        <tr>
-          <td class="px-5 py-3"><span class="ms-badge ${msClass(o.milestone)}">${o.milestone}</span></td>
-          <td class="px-5 py-3"><div class="font-semibold">${escapeHtml(o.order_type)}</div><div class="text-xs text-slate-500">${escapeHtml(o.content||'')}</div></td>
-          <td class="px-5 py-3">${escapeHtml(o.receiver)}</td>
-          <td class="px-5 py-3 ${o.deadline<todayStr() && !o.processed ?'text-red-600 font-semibold':''}">${fmt(o.deadline)}</td>
-          <td class="px-5 py-3"><label class="inline-flex items-center gap-2"><input type="checkbox" data-email="${o.id}" ${o.email_sent?'checked':''}/> ${o.email_sent_date?'<span class="text-xs text-slate-500">'+fmtDT(o.email_sent_date)+'</span>':''}</label></td>
-          <td class="px-5 py-3"><label class="inline-flex items-center gap-2"><input type="checkbox" data-process="${o.id}" ${o.processed?'checked':''}/> ${o.processed_date?'<span class="text-xs text-slate-500">'+fmtDT(o.processed_date)+'</span>':''}</label></td>
-          <td class="px-5 py-3"><input class="field-input text-xs" data-note="${o.id}" value="${escapeHtml(o.note||'')}" placeholder="Note..."/></td>
-        </tr>`).join('')}</tbody>
-    </table>
+
+  const orderCard = (o) => {
+    const overdue = o.deadline < todayStr() && !o.processed;
+    // Status: processed → completed; email_sent → pending; else → locked-ish (chưa gửi)
+    let s, label;
+    if (o.processed) { s = 'completed'; label = '✓ ĐÃ XỬ LÝ XONG'; }
+    else if (o.email_sent) { s = 'pending'; label = '⏱ ĐÃ GỬI · CHỜ XỬ LÝ'; }
+    else { s = overdue ? 'failed' : 'todo'; label = '○ CHƯA GỬI ORDER'; }
+
+    let infoBar;
+    if (o.processed) infoBar = `<div class="em-info-bar em-info-success">✓ Hoàn tất${o.processed_date?' lúc '+fmtDT(o.processed_date):''}</div>`;
+    else if (o.email_sent) infoBar = `<div class="em-info-bar">ⓘ Đã gửi order${o.email_sent_date?' lúc '+fmtDT(o.email_sent_date):''} · Đang chờ <span class="hl">${escapeHtml(o.receiver)}</span> xử lý</div>`;
+    else infoBar = `<div class="em-info-bar">○ Chưa gửi order cho ${escapeHtml(o.receiver)}${overdue?' · <span class="hl">QUÁ HẠN</span>':''}</div>`;
+
+    return `<div class="em-card is-${s}">
+      <div class="em-dot">📦</div>
+      <div class="em-card-top">
+        <span class="em-card-status">${label}</span>
+        <span class="em-card-date ${overdue?'text-red-600 font-semibold':''}">Hạn ${fmt(o.deadline)}</span>
+      </div>
+      <div class="em-card-subject">${escapeHtml(o.order_type)}</div>
+      <div class="em-card-meta">
+        <span>🏢 ${escapeHtml(o.receiver)}</span><span class="sep">·</span>
+        <span>${o.milestone}</span>
+      </div>
+      <div class="text-sm text-slate-600 mt-1">${escapeHtml(o.content||'')}</div>
+      ${infoBar}
+      <div class="em-card-actions">
+        <label class="order-toggle"><input type="checkbox" data-email="${o.id}" ${o.email_sent?'checked':''}/> <span>Đã gửi email order</span></label>
+        <label class="order-toggle"><input type="checkbox" data-process="${o.id}" ${o.processed?'checked':''}/> <span>Đã xử lý xong</span></label>
+      </div>
+      <input class="field-input text-xs mt-2" data-note="${o.id}" value="${escapeHtml(o.note||'')}" placeholder="📝 Ghi chú..."/>
+    </div>`;
+  };
+
+  $('#tabBody').innerHTML = `<div class="bg-white rounded-xl border border-slate-200 p-5">
+    <div class="em-timeline">${orders.map(orderCard).join('')}</div>
   </div>`;
+
   const upd = (id, body) => api.put('/api/orders/'+id, body);
   $$('[data-email]').forEach(cb => cb.onchange = async () => { await upd(cb.dataset.email, { email_sent: cb.checked?1:0 }); toast('💾','success'); renderOrdersTab(cid); });
   $$('[data-process]').forEach(cb => cb.onchange = async () => { await upd(cb.dataset.process, { processed: cb.checked?1:0 }); toast('💾','success'); renderOrdersTab(cid); });
@@ -1384,7 +1406,7 @@ routes['fu-x7k'] = async () => {
 
 // ═══════════ EMAIL TEMPLATES PAGE ═══════════
 routes.templates = async () => {
-  $('#pageTitle').textContent = 'Mẫu Email';
+  $('#pageTitle').textContent = 'Mẫu template mail';
   $('#topActions').innerHTML = `<button class="btn btn-secondary" id="btnResetAll">↺ Reset tất cả về mặc định</button>`;
   $('#btnResetAll').onclick = withLoading(async () => {
     const ok = await showConfirm({
@@ -1400,38 +1422,44 @@ routes.templates = async () => {
   }, 'Đang reset...');
 
   const list = await api.get('/api/email-templates');
-  $('#content').innerHTML = `
-    <div class="bg-white rounded-xl border border-slate-200 p-5 mb-5">
-      <p class="text-sm text-slate-600 m-0">Quản lý 8 mẫu email tự động (M1-M8 — 3 giai đoạn). Sửa subject / body bất kỳ → bấm <b>Lưu</b> → hệ thống hỏi có muốn áp dụng cho email <b>pending</b> hay không.</p>
-      <p class="text-sm text-slate-600 mt-3 m-0"><b>Placeholder ứng viên:</b>
-        <code>{{full_name}}</code> <code>{{job_title}}</code> <code>{{department}}</code> <code>{{manager_name}}</code> <code>{{level}}</code> <code>{{email}}</code> <code>{{phone}}</code>
-      </p>
-      <p class="text-sm text-slate-600 mt-2 m-0"><b>Placeholder ngày:</b>
-        <code>{{start_date}}</code> <code>{{start_date_minus_1}}</code> <code>{{start_date_minus_5}}</code>
-      </p>
-    </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      ${list.map(t => `
-        <div class="bg-white rounded-xl border border-slate-200 p-4 flex flex-col gap-3 hover:border-indigo-300 hover:shadow-md transition">
-          <div class="flex justify-between items-center">
-            <div class="flex items-center gap-2">
-              <span class="ms-badge ${msClass(t.milestone)}">${t.milestone}</span>
-              <span class="text-xs text-slate-500">${t.email_type==='department'?'🏢 '+escapeHtml(t.receiver_label||'Bộ phận'):'👤 Ứng viên'}</span>
-            </div>
-            <span class="text-xs text-slate-400">${t.template_key} · offset ${t.day_offset>=0?'+':''}${t.day_offset}</span>
-          </div>
-          <div class="font-semibold text-slate-900 text-sm">${escapeHtml(t.subject)}</div>
-          <div class="text-xs text-slate-600 line-clamp-3 whitespace-pre-line" style="display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden">${escapeHtml(t.body.slice(0,260))}${t.body.length>260?'…':''}</div>
-          <div class="flex justify-between items-center pt-2 border-t border-slate-100 mt-auto">
-            <span class="text-xs text-slate-400">Cập nhật: ${fmtDT(t.updated_at)}</span>
-            <button class="btn btn-primary btn-sm" data-edit="${t.template_key}">✏️ Sửa</button>
-          </div>
-        </div>
-      `).join('')}
-    </div>
-  `;
-  $$('[data-edit]').forEach(b => b.onclick = () => openTemplateEditor(b.dataset.edit));
+  const tmplCard = (t) => `
+    <div class="tmpl-card" data-edit="${t.template_key}">
+      <div class="tmpl-card-head">
+        <span class="tmpl-key">${t.template_key}</span>
+        <span class="text-xs ${t.email_type==='department'?'text-amber-700':'text-indigo-700'} font-medium">${t.email_type==='department'?'🏢 '+escapeHtml(t.receiver_label||'Bộ phận'):'👤 Ứng viên'}</span>
+        <span class="ms-badge ${msClass(t.milestone)} ml-auto">${t.milestone}</span>
+      </div>
+      <div class="tmpl-subject">${escapeHtml(t.subject)}</div>
+      <div class="tmpl-body-preview">${escapeHtml(t.body.slice(0,180))}${t.body.length>180?'…':''}</div>
+      <div class="tmpl-card-foot">
+        <span class="text-xs text-slate-400">offset ${t.day_offset>=0?'+':''}${t.day_offset} · ${fmtDT(t.updated_at)}</span>
+        <button class="btn btn-primary btn-sm" data-edit="${t.template_key}">✏️ Sửa</button>
+      </div>
+    </div>`;
+
+  let html = `<div class="bg-white rounded-xl border border-slate-200 p-5 mb-5">
+      <p class="text-sm text-slate-600 m-0">Quản lý 8 mẫu email tự động (M1-M8 — 3 giai đoạn). Sửa subject / body bất kỳ → bấm <b>Lưu</b> → hệ thống hỏi có muốn áp dụng cho email <b>pending</b> hay không.</p>
+      <p class="text-sm text-slate-600 mt-3 m-0"><b>Placeholder:</b>
+        <code>{{full_name}}</code> <code>{{job_title}}</code> <code>{{department}}</code> <code>{{manager_name}}</code> <code>{{level}}</code> <code>{{email}}</code> <code>{{phone}}</code> <code>{{pronoun}}</code> <code>{{start_date}}</code> <code>{{start_date_minus_1}}</code> <code>{{start_date_minus_5}}</code>
+      </p>
+    </div>`;
+
+  EMAIL_STAGES.forEach(stage => {
+    const stageTmpls = list.filter(t => stage.ms.includes(t.milestone))
+                           .sort((a,b) => a.day_offset - b.day_offset);
+    if (stageTmpls.length === 0) return;
+    html += `<div class="em-stage">
+      <div class="em-stage-num">${stage.num}</div>
+      <div style="min-width:0">
+        <div class="em-stage-head"><div><h3>${stage.name}</h3><p>${stage.desc} · ${stageTmpls.length} mẫu email</p></div></div>
+        <div class="tmpl-grid">${stageTmpls.map(tmplCard).join('')}</div>
+      </div>
+    </div>`;
+  });
+
+  $('#content').innerHTML = html;
+  $$('[data-edit]').forEach(b => b.onclick = (ev) => { ev.stopPropagation(); openTemplateEditor(b.dataset.edit); });
 };
 
 const openTemplateEditor = async (key) => {
