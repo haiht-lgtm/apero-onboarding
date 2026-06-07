@@ -68,6 +68,20 @@ Tab **Deployments** → menu `...` của deployment mới nhất → **Redeploy*
 
 Sau ~1 phút có URL `https://apero-onboarding.vercel.app` chạy thật.
 
+### Deploy các lần sau (cập nhật code)
+
+Sau khi đã setup xong 5 bước trên, mỗi lần muốn cập nhật code lên web chỉ cần **commit + push** lên GitHub — Vercel tự động deploy lại:
+
+```bash
+git add .
+git commit -m "Mô tả thay đổi"
+git push
+```
+
+→ Push xong, Vercel tự build & deploy trong ~1 phút. **Không cần** vào Vercel bấm gì.
+
+> 💡 Trong dự án này, nói **"deploy"** = commit + push lên GitHub.
+
 ## 🔐 Cấu hình SMTP (Gmail)
 
 Vào trang **Cài Đặt** trong app, điền:
