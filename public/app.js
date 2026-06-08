@@ -563,8 +563,23 @@ const renderCandidateDetail = async (id, tab='emails') => {
 const renderEmailsTab = async (cid) => {
   const emails = await api.get(`/api/candidates/${cid}/emails`);
 
+  // Banner cổng DUYỆT — chưa duyệt thì các email order bị khóa
+  const approved = emails.length ? !!emails[0].approved : false;
+  let html = '';
+  if (approved) {
+    html += `<div class="rounded-xl border border-green-200 bg-green-50 p-4 mb-4 flex items-center justify-between gap-3 flex-wrap">
+      <div class="text-sm text-green-800"><b>✅ Đã DUYỆT</b> — các email order đã mở khóa, bạn gửi tuần tự bên dưới.</div>
+      <button class="btn btn-secondary btn-sm" id="btnApproveGate" data-next="false">↶ Bỏ duyệt</button>
+    </div>`;
+  } else {
+    html += `<div class="rounded-xl border border-amber-200 bg-amber-50 p-4 mb-4 flex items-center justify-between gap-3 flex-wrap">
+      <div class="text-sm text-amber-800"><b>⏳ Chưa DUYỆT</b> — mới gửi được email đầu (lấy thông tin). Bấm DUYỆT để mở khóa các email order (MISA, tài khoản, thiết bị...).</div>
+      <button class="btn btn-primary btn-sm" id="btnApproveGate" data-next="true">✅ DUYỆT (mở khóa)</button>
+    </div>`;
+  }
+
   // Dùng card timeline giống trang Lịch gửi mail — gom theo 3 giai đoạn
-  let html = '<div class="bg-white rounded-xl border border-slate-200 p-5">';
+  html += '<div class="bg-white rounded-xl border border-slate-200 p-5">';
   let any = false;
   EMAIL_STAGES.forEach(stage => {
     const stageEmails = emails.filter(e => stage.ms.includes(e.milestone))
@@ -589,6 +604,18 @@ const renderEmailsTab = async (cid) => {
   if (!any) html += '<div class="text-center text-slate-400 py-8">Chưa có email (kiểm tra ngày đi làm)</div>';
   html += '</div>';
   $('#tabBody').innerHTML = html;
+
+  const apBtn = $('#btnApproveGate');
+  if (apBtn) apBtn.onclick = withLoading(async function () {
+    const next = this.dataset.next === 'true';
+    if (next) {
+      const ok = await showConfirm({ title:'DUYỆT ứng viên này?', message:'Mở khóa các email order (MISA, tài khoản, thiết bị...) để gửi.', icon:'✅', okLabel:'DUYỆT' });
+      if (!ok) return;
+    }
+    const r = await api.put(`/api/candidates/${cid}/approval`, { approved: next });
+    if (r.error) toast('❌ '+r.error,'error');
+    else { toast(next ? '✅ Đã duyệt — email order đã mở khóa' : '↶ Đã bỏ duyệt','success'); renderEmailsTab(cid); }
+  }, 'Đang cập nhật...');
 
   $$('[data-prev]').forEach(b => b.onclick = () => previewEmail(b.dataset.prev));
   $$('[data-send]').forEach(b => b.onclick = withLoading(async function () {
@@ -854,6 +881,7 @@ function renderEmailCard(e) {
   let displayLabel;
   if (s === 'sent') displayLabel = isCompleted ? '✓ HOÀN THÀNH' : '⏱ ĐANG CHỜ PHẢN HỒI';
   else if (s === 'pending') displayLabel = '⏱ CHỜ GỬI';
+  else if (s === 'await_approval') displayLabel = '🔒 CHỜ DUYỆT';
   else if (s === 'locked') displayLabel = '🔒 CHƯA TỚI LƯỢT';
   else if (s === 'failed') displayLabel = '✕ GỬI THẤT BẠI';
   else displayLabel = s.toUpperCase();
@@ -867,6 +895,8 @@ function renderEmailCard(e) {
       const waitWho = EMAIL_WAITING_FOR[e.template_key] || 'phản hồi';
       infoBar = `<div class="em-info-bar">ⓘ Đã gửi · Đang chờ <span class="hl">${escapeHtml(waitWho)}</span></div>`;
     }
+  } else if (s === 'await_approval') {
+    infoBar = `<div class="em-info-bar">🔒 Chờ <span class="hl">DUYỆT</span> ứng viên — bấm nút DUYỆT phía trên để mở khóa gửi email này</div>`;
   } else if (s === 'locked') {
     infoBar = `<div class="em-info-bar">🔒 Phải gửi mốc #${(e.priority||1)-1} trước khi gửi mốc này</div>`;
   } else if (s === 'failed') {
@@ -891,7 +921,9 @@ function renderEmailCard(e) {
     }
   }
 
-  const cardCls = s === 'sent' ? (isCompleted ? 'is-completed' : 'is-pending') : `is-${s}`;
+  const cardCls = s === 'sent' ? (isCompleted ? 'is-completed' : 'is-pending')
+                : s === 'await_approval' ? 'is-locked'
+                : `is-${s}`;
 
   return `<div class="em-card ${cardCls}">
     <div class="em-dot">${e.priority || '?'}</div>
