@@ -815,7 +815,7 @@ const renderInfoTab = (c) => {
 let emailFilters = { search:'' };
 
 const EMAIL_STAGES = [
-  { num: 1, name: 'Chuẩn bị', desc: 'Trước ngày vào',  ms: ['D-7','D-5','D-3'] },
+  { num: 1, name: 'Chuẩn bị', desc: 'Trước ngày vào',  ms: ['D-7','D-5','D-3','D-2','D-1'] },
   { num: 2, name: 'Hội nhập', desc: 'Tuần 1 → Tuần 2', ms: ['D0','D+7'] },
   { num: 3, name: 'Theo dõi', desc: 'Tháng 1 trở đi',  ms: ['D+30','D+60'] }
 ];
@@ -1039,7 +1039,7 @@ routes['or-x7k'] = async () => {
     <div class="bg-white rounded-xl border border-slate-200 p-3 mb-4 flex gap-2 flex-wrap items-center">
       <input id="orderSearch" type="text" class="field-input flex-1 min-w-[200px] max-w-md" placeholder="🔍 Tìm theo tên / order / mốc..." value="${escapeHtml(orderFilter.search)}"/>
       <span class="text-xs font-semibold text-slate-500">Bộ phận:</span>
-      ${chip('receiver','','Tất cả')} ${chip('receiver','HCNS','HCNS')} ${chip('receiver','MyNTH','MyNTH (IT)')} ${chip('receiver','HùngNX','HùngNX (IT)')} ${chip('receiver','PhươngHT','PhươngHT (C&B)')}
+      ${chip('receiver','','Tất cả')} ${chip('receiver','HCNS','HCNS')} ${chip('receiver','MyNTH','MyNTH (IT)')} ${chip('receiver','HùngNX','HùngNX (IT)')} ${chip('receiver','QuynhNT','QuynhNT (C&B)')}
       <span class="w-3"></span>
       <span class="text-xs font-semibold text-slate-500">Trạng thái:</span>
       ${chip('status','','Tất cả')} ${chip('status','pending','⏳ Chờ xử lý')} ${chip('status','processed','✅ Đã xử lý')}
@@ -1435,7 +1435,7 @@ routes.templates = async () => {
     </div>`;
 
   let html = `<div class="bg-white rounded-xl border border-slate-200 p-5 mb-5">
-      <p class="text-sm text-slate-600 m-0">Quản lý 8 mẫu email tự động (M1-M8 — 3 giai đoạn). Sửa subject / body bất kỳ → bấm <b>Lưu</b> → hệ thống hỏi có muốn áp dụng cho email <b>pending</b> hay không.</p>
+      <p class="text-sm text-slate-600 m-0">Quản lý 10 mẫu email tự động (M1-M10 — 3 giai đoạn). Sửa subject / body bất kỳ → bấm <b>Lưu</b> → hệ thống hỏi có muốn áp dụng cho email <b>pending</b> hay không.</p>
       <p class="text-sm text-slate-600 mt-3 m-0"><b>Placeholder:</b>
         <code>{{full_name}}</code> <code>{{job_title}}</code> <code>{{department}}</code> <code>{{manager_name}}</code> <code>{{level}}</code> <code>{{email}}</code> <code>{{phone}}</code> <code>{{pronoun}}</code> <code>{{start_date}}</code> <code>{{start_date_minus_1}}</code> <code>{{start_date_minus_5}}</code>
       </p>
@@ -1614,10 +1614,10 @@ routes.settings = async () => {
       <h2 class="font-bold text-slate-900 mb-2">Email các bộ phận liên quan</h2>
       <p class="text-sm text-slate-500 mb-4">Cấu hình email các bộ phận để hệ thống tự gửi reminder mỗi khi có ứng viên mới onboard.</p>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        ${fld('dept_hcns_email','HCNS / Backoffice (D-7 thiết bị + vé xe)', s.dept_hcns_email, 'hcns@apero.vn')}
+        ${fld('dept_hcns_email','HCNS / Backoffice (D-5 thiết bị + vé xe)', s.dept_hcns_email, 'hcns@apero.vn')}
         ${fld('dept_it_mynth_email','MyNTH — IT (D-5 email công ty)', s.dept_it_mynth_email, 'mynth@apero.vn')}
         ${fld('dept_it_hungnx_email','HùngNX — IT (D-5 Confluence)', s.dept_it_hungnx_email, 'hungnx@apero.vn')}
-        ${fld('dept_cb_phuongth_email','PhươngHT — C&B (D-5 MISA + Username)', s.dept_cb_phuongth_email, 'phuongth@apero.vn')}
+        ${fld('dept_cb_phuongth_email','QuynhNT — C&B (D-5 MISA + Username)', s.dept_cb_phuongth_email, 'quynhnt@apero.vn')}
       </div>
       <div class="mt-4"><button class="btn btn-primary" id="btnSave2">💾 Lưu email bộ phận</button></div>
     </div>
