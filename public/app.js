@@ -547,6 +547,7 @@ const renderCandidateDetail = async (id, tab='emails') => {
       <div class="tab ${tab==='emails'?'active':''}" data-tab="emails">📧 Email</div>
       <div class="tab ${tab==='orders'?'active':''}" data-tab="orders">📦 Order Bộ Phận</div>
       <div class="tab ${tab==='followup'?'active':''}" data-tab="followup">❓ Follow-up</div>
+      <div class="tab ${tab==='sheet'?'active':''}" data-tab="sheet">🔎 Hồ sơ (Sheet)</div>
       <div class="tab ${tab==='info'?'active':''}" data-tab="info">ℹ️ Sửa thông tin</div>
     </div>
     <div id="tabBody"></div>
@@ -557,6 +558,7 @@ const renderCandidateDetail = async (id, tab='emails') => {
   else if (tab === 'orders') renderOrdersTab(id);
   else if (tab === 'checklist') renderChecklistTab(id, checks);
   else if (tab === 'followup') renderFollowupTab(id);
+  else if (tab === 'sheet') renderSheetTab(c);
   else renderInfoTab(c);
 };
 
@@ -1601,6 +1603,28 @@ const sheetStatusBadge = (st) => {
   else if (n.includes('tiep nhan')) cls = 'bg-blue-100 text-blue-700';
   return `<span class="px-2.5 py-1 rounded-full text-xs font-semibold ${cls}">${escapeHtml(st || '—')}</span>`;
 };
+const sheetResultCard = (r) => {
+  const field = (label, val) => val ? `<div><div class="text-[11px] text-slate-400 uppercase tracking-wide">${label}</div><div class="text-sm text-slate-800 break-words">${escapeHtml(val)}</div></div>` : '';
+  return `
+    <div class="bg-white rounded-xl border border-slate-200 p-5 mb-3">
+      <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
+        <div class="flex items-center gap-3"><div class="avatar">${initials(r.name)}</div>
+          <div><div class="font-bold text-slate-900 text-lg">${escapeHtml(r.name)}</div>
+          <div class="text-xs text-slate-500">${escapeHtml(r.position || '')}${r.department ? ' · ' + escapeHtml(r.department) : ''}</div></div></div>
+        ${sheetStatusBadge(r.status)}
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+        ${field('Ngày nhận việc', r.startDate)}
+        ${field('Email công ty', r.companyEmail)}
+        ${field('Email cá nhân', r.personalEmail)}
+        ${field('Số điện thoại', r.phone)}
+        ${field('Quản lý trực tiếp', r.manager)}
+        ${field('Địa điểm', r.location)}
+        ${field('Ngày sinh', r.dob)}
+        ${field('Giới tính', r.gender)}
+      </div>
+    </div>`;
+};
 const renderSheetResults = async () => {
   const box = $('#sheetResults');
   if (!box) return;
@@ -1613,28 +1637,46 @@ const renderSheetResults = async () => {
       box.innerHTML = `<div class="text-slate-500 text-sm py-6 text-center">Không tìm thấy ai tên có "<b>${escapeHtml(q)}</b>".</div>`;
       return;
     }
-    const field = (label, val) => val ? `<div><div class="text-[11px] text-slate-400 uppercase tracking-wide">${label}</div><div class="text-sm text-slate-800 break-words">${escapeHtml(val)}</div></div>` : '';
-    box.innerHTML = `<div class="text-xs text-slate-500 mb-2">${d.count} kết quả</div>` + d.results.map(r => `
-      <div class="bg-white rounded-xl border border-slate-200 p-5 mb-3">
-        <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
-          <div class="flex items-center gap-3"><div class="avatar">${initials(r.name)}</div>
-            <div><div class="font-bold text-slate-900 text-lg">${escapeHtml(r.name)}</div>
-            <div class="text-xs text-slate-500">${escapeHtml(r.position || '')}${r.department ? ' · ' + escapeHtml(r.department) : ''}</div></div></div>
-          ${sheetStatusBadge(r.status)}
-        </div>
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-          ${field('Ngày nhận việc', r.startDate)}
-          ${field('Email công ty', r.companyEmail)}
-          ${field('Email cá nhân', r.personalEmail)}
-          ${field('Số điện thoại', r.phone)}
-          ${field('Quản lý trực tiếp', r.manager)}
-          ${field('Địa điểm', r.location)}
-          ${field('Ngày sinh', r.dob)}
-          ${field('Giới tính', r.gender)}
-        </div>
-      </div>`).join('');
+    box.innerHTML = `<div class="text-xs text-slate-500 mb-2">${d.count} kết quả</div>` + d.results.map(sheetResultCard).join('');
   } catch (e) {
     box.innerHTML = `<div class="bg-amber-50 border border-amber-300 text-amber-900 rounded-lg p-4 text-sm">⚠️ ${escapeHtml(e.message)}</div>`;
+  }
+};
+// Tab "Hồ sơ (Sheet)" trong trang chi tiết ứng viên — tự tra theo tên đang xem
+const renderSheetTab = async (c) => {
+  const body = $('#tabBody');
+  if (!body) return;
+  const name = (c.full_name || '').trim();
+  const st = await api.get('/api/sheet/status').catch(() => ({ configured: false, url: '#' }));
+  const openBtn = `<a href="${escapeHtml(st.url || '#')}" target="_blank" class="btn btn-secondary btn-sm whitespace-nowrap">📄 Mở Google Sheet →</a>`;
+  if (!st.configured) {
+    body.innerHTML = `
+      <div class="bg-white rounded-xl border border-slate-200 p-5">
+        <div class="flex items-center justify-between gap-3 flex-wrap mb-3">
+          <div class="font-bold text-slate-900">Hồ sơ trên Google Sheet</div>${openBtn}
+        </div>
+        <div class="bg-amber-50 border border-amber-300 text-amber-900 rounded-lg p-4 text-sm">
+          ℹ️ Tra cứu tự động sẽ bật khi IT cấp "tài khoản robot". Tạm thời: bấm <b>Mở Google Sheet</b> rồi nhấn
+          <b>Ctrl+F</b>, gõ "<b>${escapeHtml(name)}</b>" để xem trạng thái.
+        </div>
+      </div>`;
+    return;
+  }
+  body.innerHTML = `
+    <div class="flex items-center justify-between gap-3 flex-wrap mb-3">
+      <div class="text-sm text-slate-500">Trạng thái lấy trực tiếp từ Google Sheet cho: <b>${escapeHtml(name)}</b></div>${openBtn}
+    </div>
+    <div id="sheetTabResults"><div class="text-slate-400 text-sm py-6 text-center">⏳ Đang tra cứu…</div></div>`;
+  try {
+    const d = await api.get('/api/sheet/search?q=' + encodeURIComponent(name));
+    const out = $('#sheetTabResults');
+    if (!d.results || d.results.length === 0) {
+      out.innerHTML = `<div class="text-slate-500 text-sm py-6 text-center">Không tìm thấy "<b>${escapeHtml(name)}</b>" trong Sheet. Thử mở Sheet và tìm tay nhé.</div>`;
+      return;
+    }
+    out.innerHTML = d.results.map(sheetResultCard).join('');
+  } catch (e) {
+    $('#sheetTabResults').innerHTML = `<div class="bg-amber-50 border border-amber-300 text-amber-900 rounded-lg p-4 text-sm">⚠️ ${escapeHtml(e.message)}</div>`;
   }
 };
 routes['sheet-lookup'] = async () => {
