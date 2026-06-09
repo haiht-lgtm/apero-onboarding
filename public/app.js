@@ -293,7 +293,9 @@ routes.dashboard = async () => {
         </table>`;
       })()}
     </div>
+    <div id="onbPanel" class="mt-6"></div>
   `;
+  renderOnboardingPanel();
   // Dashboard search + filter + sort handlers
   let dashTimer;
   $('#dashSearch') && ($('#dashSearch').oninput = e => {
@@ -310,6 +312,56 @@ routes.dashboard = async () => {
   });
   $$('[data-cid]').forEach(b => b.onclick = () => navigate('candidates', { id:b.dataset.cid }));
 };
+
+// Bảng "Sắp tới ngày onboarding" trên Dashboard — đọc file Apero Onboarding (chỉ đọc)
+async function renderOnboardingPanel() {
+  const el = $('#onbPanel');
+  if (!el) return;
+  const wrap = (inner, url) => `
+    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div class="px-5 py-3 border-b border-slate-200 flex items-center justify-between gap-3 flex-wrap">
+        <h2 class="font-bold text-slate-900 m-0">📅 Sắp tới ngày onboarding</h2>
+        <a href="${escapeHtml(url||'#')}" target="_blank" class="btn btn-secondary btn-sm whitespace-nowrap">📄 Mở file Onboarding</a>
+      </div>
+      ${inner}
+    </div>`;
+  let d;
+  try { d = await api.get('/api/onboarding/upcoming'); }
+  catch (e) { el.innerHTML = wrap(`<div class="p-5 text-sm text-amber-700">⚠️ ${escapeHtml(e.message)}</div>`, e.body && e.body.url); return; }
+
+  if (!d.configured) {
+    el.innerHTML = wrap(`<div class="p-5 text-sm text-slate-500">Đang chờ kết nối Google (tài khoản robot từ IT) để tự đọc file Apero Onboarding. Tạm thời bấm <b>Mở file Onboarding</b> để xem.</div>`, d.url);
+    return;
+  }
+  const rows = d.rows || [];
+  const upcoming = rows.filter(r => r.daysUntil !== null && r.daysUntil >= 0);
+  const noDate = rows.filter(r => r.daysUntil === null);
+  const list = (upcoming.length ? upcoming : rows).slice(0, 30);
+  if (!list.length) { el.innerHTML = wrap(`<div class="p-5 text-sm text-slate-500">Không có ai sắp tới ngày onboarding.</div>`, d.url); return; }
+  const badge = n => {
+    if (n === null) return '<span class="text-xs text-slate-400">—</span>';
+    if (n < 0) return `<span class="text-xs text-slate-400">đã qua ${-n} ngày</span>`;
+    if (n === 0) return '<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">Hôm nay</span>';
+    if (n <= 7) return `<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">còn ${n} ngày</span>`;
+    return `<span class="text-xs text-slate-500">còn ${n} ngày</span>`;
+  };
+  el.innerHTML = wrap(`
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-600">
+        <tr><th class="text-left px-5 py-3">Họ tên</th><th class="text-left px-5 py-3">Ngày nhận việc</th><th class="text-left px-5 py-3">Trạng thái</th><th class="text-left px-5 py-3">Đếm ngược</th></tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        ${list.map(r => `<tr>
+          <td class="px-5 py-3 font-semibold text-slate-900">${escapeHtml(r.name||'—')}</td>
+          <td class="px-5 py-3">${escapeHtml(r.startDate||'—')}</td>
+          <td class="px-5 py-3">${sheetStatusBadge(r.status)}</td>
+          <td class="px-5 py-3">${badge(r.daysUntil)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    ${noDate.length ? `<div class="px-5 py-2 text-xs text-amber-600 bg-amber-50 border-t border-amber-100">${noDate.length} dòng chưa đọc được định dạng ngày — mở file kiểm tra.</div>` : ''}
+    <div class="px-5 py-2 text-xs text-slate-500 bg-slate-50 border-t border-slate-200">${upcoming.length} sắp tới · ${rows.length} tổng có ngày nhận việc</div>`, d.url);
+}
 
 // ═══════════ CANDIDATES ═══════════
 let candidatesFilter = { search: '', status: 'all', department: 'all' };

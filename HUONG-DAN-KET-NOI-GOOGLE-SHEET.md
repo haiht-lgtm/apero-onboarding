@@ -53,8 +53,13 @@
 ## Phần B — Chia sẻ file Sheet cho robot
 > Việc này phải do **CHỦ file Sheet** làm (người tạo file / có quyền chia sẻ).
 > Nếu bạn chỉ có quyền Xem, hãy nhờ chủ file.
+>
+> ⚠️ Cần chia sẻ **CẢ 2 FILE** cho robot:
+> 1. File **Hồ sơ (Profile)** — `...1nJGX480Z2M4MpUPAiUpB5VM75LpzaES8LPf5IxbZ-WE`
+> 2. File **Apero Onboarding** (theo dõi ngày nhận việc) — `...1FwFUx0HHt4F-kmH_0Du8Bt7J5_CdkNDCpItngloQBkw`
 
-1. Mở file Google Sheet hồ sơ ứng viên.
+Với MỖI file, làm các bước:
+1. Mở file Google Sheet.
 2. Bấm nút **Chia sẻ (Share)** góc trên bên phải.
 3. Dán **email của robot** (lấy ở Bước 5) vào ô mời.
 4. Chọn quyền **Người xem (Viewer)** — chỉ cần Xem, không cần Sửa.
@@ -76,9 +81,11 @@
 ### Khi đưa lên Vercel (chạy thật, không phải máy bạn)
 Vercel không đọc file `.json` trên máy → cần nạp khóa qua **biến môi trường**.
 Claude sẽ hướng dẫn cụ thể, đại khái cần đặt trong Vercel:
-- `GOOGLE_SHEET_ID` = `1nJGX480Z2M4MpUPAiUpB5VM75LpzaES8LPf5IxbZ-WE`
 - `GOOGLE_SERVICE_ACCOUNT_EMAIL` = email robot
 - `GOOGLE_PRIVATE_KEY` = phần khóa bí mật trong file json
+- (Tuỳ chọn — đã có mặc định sẵn trong code)
+  - `GOOGLE_SHEET_ID` = `1nJGX480Z2M4MpUPAiUpB5VM75LpzaES8LPf5IxbZ-WE` (file Hồ sơ)
+  - `GOOGLE_ONBOARDING_SHEET_ID` = `1FwFUx0HHt4F-kmH_0Du8Bt7J5_CdkNDCpItngloQBkw` (file Apero Onboarding)
 
 ---
 
