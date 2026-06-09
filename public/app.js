@@ -157,7 +157,8 @@ const render = async () => {
   const path = location.pathname.replace(/^\/+/, '') || 'dashboard';
   const [route, id, tab] = path.split('/');
   // Block public access đến hidden admin routes — silent redirect về dashboard
-  if (route === 'checklist' || route === 'orders' || route === 'followup') {
+  // ('or-x7k' = trang Order Bộ Phận: đã ẩn khỏi giao diện theo yêu cầu)
+  if (route === 'checklist' || route === 'orders' || route === 'followup' || route === 'or-x7k') {
     history.replaceState({}, '', '/dashboard');
     return render();
   }
@@ -192,7 +193,6 @@ routes.dashboard = async () => {
   const alerts = [];
   if (s.overdueChecks > 0) alerts.push({ icon: '🔴', text: `<strong>${s.overdueChecks}</strong> checklist QUÁ HẠN cần xử lý ngay`, route: 'cl-x7k', bg: 'bg-red-50 border-red-500 text-red-900', hover: 'hover:bg-red-100' });
   if (s.todayEmails > 0) alerts.push({ icon: '⏰', text: `<strong>${s.todayEmails}</strong> email cần gửi HÔM NAY`, route: 'emails', bg: 'bg-amber-50 border-amber-500 text-amber-900', hover: 'hover:bg-amber-100' });
-  if (s.pendingOrders > 0) alerts.push({ icon: '📦', text: `<strong>${s.pendingOrders}</strong> order bộ phận đang CHỜ XỬ LÝ`, route: 'or-x7k', bg: 'bg-orange-50 border-orange-500 text-orange-900', hover: 'hover:bg-orange-100' });
   const alertHtml = alerts.length === 0 ? '' : `
     <div class="mb-5 space-y-2">
       ${alerts.map(a => `<button data-route="${a.route}" class="w-full text-left ${a.bg} border-l-4 px-4 py-3 rounded-lg flex items-center gap-3 ${a.hover} transition cursor-pointer">
@@ -545,7 +545,6 @@ const renderCandidateDetail = async (id, tab='emails') => {
 
     <div class="tabs">
       <div class="tab ${tab==='emails'?'active':''}" data-tab="emails">📧 Email</div>
-      <div class="tab ${tab==='orders'?'active':''}" data-tab="orders">📦 Order Bộ Phận</div>
       <div class="tab ${tab==='followup'?'active':''}" data-tab="followup">❓ Follow-up</div>
       <div class="tab ${tab==='sheet'?'active':''}" data-tab="sheet">🔎 Hồ sơ (Sheet)</div>
       <div class="tab ${tab==='info'?'active':''}" data-tab="info">ℹ️ Sửa thông tin</div>
@@ -555,7 +554,6 @@ const renderCandidateDetail = async (id, tab='emails') => {
   $$('.tab').forEach(t => t.onclick = () => navigate('candidates', { id, tab:t.dataset.tab }));
 
   if (tab === 'emails') renderEmailsTab(id);
-  else if (tab === 'orders') renderOrdersTab(id);
   else if (tab === 'checklist') renderChecklistTab(id, checks);
   else if (tab === 'followup') renderFollowupTab(id);
   else if (tab === 'sheet') renderSheetTab(c);
@@ -1572,7 +1570,6 @@ const openTemplateEditor = async (key) => {
 routes.advanced = async () => {
   $('#pageTitle').textContent = 'Quản Lý Nâng Cao';
   const items = [
-    { route:'orders',    icon:'📦',  label:'Order Bộ Phận',      desc:'Tracking 5 order/ứng viên (thiết bị, email, MISA...)' },
     { route:'checklist', icon:'✅',  label:'Checklist',          desc:'44 đầu việc HR phải làm theo timeline' },
     { route:'emails',    icon:'✉️',  label:'Lịch Email',         desc:'Toàn bộ 8 email tự gửi cho ứng viên + bộ phận' },
     { route:'templates', icon:'📝',  label:'Mẫu Email',          desc:'Sửa subject/body 8 templates email' },
@@ -1806,7 +1803,6 @@ routes.settings = async () => {
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         ${[
           { route:'emails',    icon:'✉️',  label:'Lịch Email',         desc:'Toàn bộ 8 email theo ứng viên' },
-          { route:'orders',    icon:'📦',  label:'Order Bộ Phận',      desc:'Tracking 5 order/ứng viên' },
           { route:'checklist', icon:'✅',  label:'Checklist',           desc:'44 đầu việc HR phải làm' },
           { route:'followup',  icon:'❓',  label:'Câu hỏi Follow-up',   desc:'25 câu hỏi tracking sau onboard' },
           { route:'templates', icon:'📝',  label:'Mẫu Email',           desc:'Sửa subject/body 8 templates' },
