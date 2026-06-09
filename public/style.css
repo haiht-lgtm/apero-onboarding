@@ -1,9 +1,21 @@
 /* Custom styles complementing Tailwind */
-*{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif}
+:root { color-scheme: dark light; }
+*{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;}
+html{scroll-behavior:smooth;}
+body{min-height:100vh;background:radial-gradient(circle at top left, rgba(99,102,241,.08), transparent 18%),radial-gradient(circle at bottom right, rgba(79,70,229,.08), transparent 22%),#f8fafc;color:#0f172a;}
+
+main{background:transparent;}
+#content{max-width:1480px;margin:0 auto;}
+.card, .surface{background:#ffffff;border:1px solid rgba(148,163,184,.16);border-radius:24px;box-shadow:0 24px 68px rgba(15,23,42,.08);}
+.section-block{background:#ffffff;border:1px solid rgba(148,163,184,.14);border-radius:22px;box-shadow:0 16px 40px rgba(15,23,42,.05);padding:24px;}
+
+aside{background:rgba(255,255,255,.98);box-shadow:0 20px 60px rgba(15,23,42,.08);}
+header{backdrop-filter:blur(12px);box-shadow:0 8px 30px rgba(15,23,42,.08);}
+#content{padding-bottom:48px;}
 
 .menu-item{
-  display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;
-  color:#475569;cursor:pointer;font-size:14px;font-weight:500;transition:.15s;
+  display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;
+  color:#475569;cursor:pointer;font-size:14px;font-weight:600;transition:.15s;
 }
 .menu-item:hover{ background:#f1f5f9; color:#1e293b }
 .menu-item.active{
@@ -12,11 +24,11 @@
 .menu-item span:first-child{ font-size:18px; width:22px; text-align:center; opacity:.85 }
 
 /* Menu sections (flat — Spec UX v1.2) */
-.menu-section{ margin-top:18px }
+.menu-section{ margin-top:22px }
 .menu-section-header{
-  font-size:11px; font-weight:600; color:#94a3b8;
-  text-transform:uppercase; letter-spacing:.1em;
-  padding:6px 12px 8px;
+  font-size:11px; font-weight:700; color:#64748b;
+  text-transform:uppercase; letter-spacing:.13em;
+  padding:8px 12px 10px;
 }
 .menu-item-sub{
   display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:8px;
@@ -98,8 +110,10 @@
 .priority-circle.failed{ background:#FCEBEB; color:#791F1F; border-color:#A32D2D }
 
 /* Button base */
-.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;font-weight:600;font-size:13px;border:1px solid transparent;transition:.15s;cursor:pointer}
-.btn-sm{padding:5px 10px;font-size:12px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:999px;font-weight:600;font-size:13px;border:1px solid transparent;transition:.18s;cursor:pointer;box-shadow:0 10px 25px rgba(15,23,42,.08);}
+.btn-sm{padding:7px 12px;font-size:12px}
+.btn-primary{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;box-shadow:0 16px 36px rgba(99,102,241,.22)}
+.btn-primary:hover{box-shadow:0 20px 48px rgba(99,102,241,.28)}
 .btn-primary{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;box-shadow:0 2px 6px rgba(99,102,241,.3)}
 .btn-primary:hover{box-shadow:0 4px 10px rgba(99,102,241,.5)}
 .btn-secondary{background:#fff;color:#374151;border-color:#d1d5db}
@@ -128,9 +142,35 @@
 .modal.lg{max-width:900px}
 
 /* Tabs */
-.tabs{display:flex;border-bottom:1px solid #e5e7eb;margin-bottom:20px;flex-wrap:wrap}
-.tab{padding:10px 18px;font-weight:600;color:#6b7280;border-bottom:2px solid transparent;cursor:pointer;font-size:13.5px;white-space:nowrap}
-.tab.active{color:#6366f1;border-bottom-color:#6366f1}
+.tabs{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  background:#f8fafc;
+  border:1px solid #e2e8f0;
+  padding:8px;
+  border-radius:999px;
+  margin-bottom:24px;
+}
+.tab{
+  padding:10px 18px;
+  border-radius:999px;
+  font-weight:600;
+  color:#475569;
+  background:transparent;
+  transition:.2s;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.tab:hover{
+  background:#eef2ff;
+  color:#3730a3;
+}
+.tab.active{
+  background:#eef2ff;
+  color:#4338ca;
+  box-shadow:0 10px 24px rgba(99,102,241,.14);
+}
 
 /* Toast */
 .toast{background:#1f2937;color:#fff;padding:12px 18px;border-radius:8px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,.2);animation:slide .25s}
