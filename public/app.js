@@ -1591,6 +1591,78 @@ routes.advanced = async () => {
   `;
 };
 
+// ═══════════ TRA CỨU HỒ SƠ (Google Sheet) ═══════════
+let sheetQuery = '';
+const sheetStatusBadge = (st) => {
+  const n = (st || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  let cls = 'bg-slate-100 text-slate-700';
+  if (n.includes('duyet')) cls = 'bg-green-100 text-green-700';
+  else if (n.includes('huy')) cls = 'bg-red-100 text-red-700';
+  else if (n.includes('tiep nhan')) cls = 'bg-blue-100 text-blue-700';
+  return `<span class="px-2.5 py-1 rounded-full text-xs font-semibold ${cls}">${escapeHtml(st || '—')}</span>`;
+};
+const renderSheetResults = async () => {
+  const box = $('#sheetResults');
+  if (!box) return;
+  const q = sheetQuery.trim();
+  if (q.length < 2) { box.innerHTML = '<div class="text-slate-400 text-sm py-6 text-center">Nhập ít nhất 2 ký tự để tìm.</div>'; return; }
+  box.innerHTML = '<div class="text-slate-400 text-sm py-6 text-center">⏳ Đang tra cứu…</div>';
+  try {
+    const d = await api.get('/api/sheet/search?q=' + encodeURIComponent(q));
+    if (!d.results || d.results.length === 0) {
+      box.innerHTML = `<div class="text-slate-500 text-sm py-6 text-center">Không tìm thấy ai tên có "<b>${escapeHtml(q)}</b>".</div>`;
+      return;
+    }
+    const field = (label, val) => val ? `<div><div class="text-[11px] text-slate-400 uppercase tracking-wide">${label}</div><div class="text-sm text-slate-800 break-words">${escapeHtml(val)}</div></div>` : '';
+    box.innerHTML = `<div class="text-xs text-slate-500 mb-2">${d.count} kết quả</div>` + d.results.map(r => `
+      <div class="bg-white rounded-xl border border-slate-200 p-5 mb-3">
+        <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
+          <div class="flex items-center gap-3"><div class="avatar">${initials(r.name)}</div>
+            <div><div class="font-bold text-slate-900 text-lg">${escapeHtml(r.name)}</div>
+            <div class="text-xs text-slate-500">${escapeHtml(r.position || '')}${r.department ? ' · ' + escapeHtml(r.department) : ''}</div></div></div>
+          ${sheetStatusBadge(r.status)}
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+          ${field('Ngày nhận việc', r.startDate)}
+          ${field('Email công ty', r.companyEmail)}
+          ${field('Email cá nhân', r.personalEmail)}
+          ${field('Số điện thoại', r.phone)}
+          ${field('Quản lý trực tiếp', r.manager)}
+          ${field('Địa điểm', r.location)}
+          ${field('Ngày sinh', r.dob)}
+          ${field('Giới tính', r.gender)}
+        </div>
+      </div>`).join('');
+  } catch (e) {
+    box.innerHTML = `<div class="bg-amber-50 border border-amber-300 text-amber-900 rounded-lg p-4 text-sm">⚠️ ${escapeHtml(e.message)}</div>`;
+  }
+};
+routes['sheet-lookup'] = async () => {
+  $('#pageTitle').textContent = 'Tra cứu hồ sơ';
+  const st = await api.get('/api/sheet/status').catch(() => ({ configured: false }));
+  const banner = st.configured ? '' : `
+    <div class="bg-amber-50 border border-amber-300 text-amber-900 rounded-lg p-4 text-sm mb-4">
+      ⚠️ <b>Chưa kết nối Google Sheet.</b> Cần đưa file chìa khóa <code>google-credentials.json</code> vào server
+      (hoặc set biến môi trường trên Vercel). Xem hướng dẫn: <code>HUONG-DAN-KET-NOI-GOOGLE-SHEET.md</code>.
+    </div>`;
+  $('#content').innerHTML = `
+    ${banner}
+    <div class="bg-white rounded-xl border border-slate-200 p-5 mb-4">
+      <label class="field-label">Tìm theo tên ứng viên</label>
+      <div class="flex gap-2">
+        <input id="sheetSearch" type="text" class="field-input flex-1" placeholder="🔎 Gõ tên, ví dụ: Nguyễn Ngọc Bảo" value="${escapeHtml(sheetQuery)}" ${st.configured ? '' : 'disabled'}/>
+        <button id="sheetSearchBtn" class="btn btn-primary" ${st.configured ? '' : 'disabled'}>Tìm</button>
+      </div>
+      <div class="text-xs text-slate-400 mt-2">Đọc trực tiếp từ Google Sheet hồ sơ — dữ liệu luôn mới nhất. Chỉ xem, không sửa.</div>
+    </div>
+    <div id="sheetResults"></div>`;
+  const input = $('#sheetSearch');
+  const doSearch = () => { sheetQuery = input.value; renderSheetResults(); };
+  $('#sheetSearchBtn').onclick = doSearch;
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+  if (sheetQuery.trim().length >= 2) renderSheetResults();
+};
+
 // ═══════════ DOCS PAGE ═══════════
 routes.docs = async () => {
   $('#pageTitle').textContent = 'Tài Liệu & Link';
