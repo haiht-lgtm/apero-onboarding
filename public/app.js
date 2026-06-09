@@ -1639,21 +1639,42 @@ const renderSheetResults = async () => {
 };
 routes['sheet-lookup'] = async () => {
   $('#pageTitle').textContent = 'Tra cứu hồ sơ';
-  const st = await api.get('/api/sheet/status').catch(() => ({ configured: false }));
-  const banner = st.configured ? '' : `
-    <div class="bg-amber-50 border border-amber-300 text-amber-900 rounded-lg p-4 text-sm mb-4">
-      ⚠️ <b>Chưa kết nối Google Sheet.</b> Cần đưa file chìa khóa <code>google-credentials.json</code> vào server
-      (hoặc set biến môi trường trên Vercel). Xem hướng dẫn: <code>HUONG-DAN-KET-NOI-GOOGLE-SHEET.md</code>.
-    </div>`;
-  $('#content').innerHTML = `
-    ${banner}
+  const st = await api.get('/api/sheet/status').catch(() => ({ configured: false, url: '#' }));
+
+  // Luôn có: nút mở thẳng Sheet gốc để tự tra cứu (Ctrl+F) — không cần kết nối gì
+  const openSheetCard = `
     <div class="bg-white rounded-xl border border-slate-200 p-5 mb-4">
-      <label class="field-label">Tìm theo tên ứng viên</label>
-      <div class="flex gap-2">
-        <input id="sheetSearch" type="text" class="field-input flex-1" placeholder="🔎 Gõ tên, ví dụ: Nguyễn Ngọc Bảo" value="${escapeHtml(sheetQuery)}" ${st.configured ? '' : 'disabled'}/>
-        <button id="sheetSearchBtn" class="btn btn-primary" ${st.configured ? '' : 'disabled'}>Tìm</button>
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <div class="font-bold text-slate-900">Mở file hồ sơ trên Google Sheet</div>
+          <div class="text-xs text-slate-500 mt-1">Mở file gốc rồi nhấn <b>Ctrl+F</b>, gõ tên ứng viên → nhảy tới dòng đó, xem cột <b>Trạng thái</b>.</div>
+        </div>
+        <a href="${escapeHtml(st.url || '#')}" target="_blank" class="btn btn-primary whitespace-nowrap">📄 Mở Google Sheet →</a>
       </div>
-      <div class="text-xs text-slate-400 mt-2">Đọc trực tiếp từ Google Sheet hồ sơ — dữ liệu luôn mới nhất. Chỉ xem, không sửa.</div>
+    </div>`;
+
+  if (!st.configured) {
+    // Chưa nối robot → chỉ có cách mở Sheet tự tra (vẫn dùng được ngay)
+    $('#content').innerHTML = `
+      ${openSheetCard}
+      <div class="bg-amber-50 border border-amber-300 text-amber-900 rounded-lg p-4 text-sm">
+        ℹ️ <b>Tra cứu tự động ngay trong app</b> (gõ tên ra trạng thái mà không cần mở file) sẽ bật được
+        khi IT cấp "tài khoản robot" (file <code>google-credentials.json</code>).
+        Trong lúc chờ, bạn dùng nút <b>Mở Google Sheet</b> ở trên + <b>Ctrl+F</b> nhé.
+      </div>`;
+    return;
+  }
+
+  // Đã nối robot → có ô tìm tự động
+  $('#content').innerHTML = `
+    ${openSheetCard}
+    <div class="bg-white rounded-xl border border-slate-200 p-5 mb-4">
+      <label class="field-label">Tìm tự động theo tên ứng viên</label>
+      <div class="flex gap-2">
+        <input id="sheetSearch" type="text" class="field-input flex-1" placeholder="🔎 Gõ tên, ví dụ: Nguyễn Ngọc Bảo" value="${escapeHtml(sheetQuery)}"/>
+        <button id="sheetSearchBtn" class="btn btn-primary">Tìm</button>
+      </div>
+      <div class="text-xs text-slate-400 mt-2">Đọc trực tiếp từ Google Sheet — dữ liệu luôn mới nhất. Chỉ xem, không sửa.</div>
     </div>
     <div id="sheetResults"></div>`;
   const input = $('#sheetSearch');
