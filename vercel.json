@@ -11,12 +11,19 @@
     },
     "api/cron/daily.js": {
       "maxDuration": 60
+    },
+    "api/cron/reminder.js": {
+      "maxDuration": 60
     }
   },
   "crons": [
     {
       "path": "/api/cron/daily",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/reminder",
+      "schedule": "0 1 * * *"
     }
   ]
 }

@@ -1844,6 +1844,22 @@ routes.settings = async () => {
     </div>
 
     <div class="bg-white rounded-xl border border-slate-200 p-5 mb-5">
+      <h2 class="font-bold text-slate-900 mb-2">⏰ Nhắc deadline gửi mail</h2>
+      <p class="text-sm text-slate-500 mb-4">Mỗi sáng <b>8h</b> (1 tiếng trước giờ hệ thống tự gửi 9h), tool sẽ gửi 1 email tổng hợp các mail onboarding tới hạn trong ngày — đặc biệt cảnh báo những mail <b>chưa được duyệt</b> để bạn vào kiểm tra kịp thời.</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        ${fld('reminder_email','Email nhận nhắc nhở', s.reminder_email, 'haiht@apero.vn')}
+      </div>
+      <label class="flex items-center gap-2 mt-3 text-sm text-slate-700 cursor-pointer">
+        <input type="checkbox" id="reminder_enabled" ${s.reminder_enabled !== false ? 'checked' : ''}/>
+        Bật nhắc nhở hằng ngày
+      </label>
+      <div class="mt-4 flex gap-2 flex-wrap items-center">
+        <button class="btn btn-primary" id="btnSave4">💾 Lưu</button>
+        <button class="btn btn-secondary" id="btnTestReminder">📨 Gửi thử nhắc ngay</button>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl border border-slate-200 p-5 mb-5">
       <h2 class="font-bold text-slate-900 mb-4">Email Signature & Công ty</h2>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         ${fld('company_name','Tên công ty', s.company_name, 'APERO Technologies Group')}
@@ -1877,9 +1893,10 @@ routes.settings = async () => {
   `;
   const save = async () => {
     const data = {};
-    ['smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from_name','smtp_from_email','company_name','email_signature','dept_hcns_email','dept_it_mynth_email','dept_it_hungnx_email','dept_cb_phuongth_email'].forEach(k => {
+    ['smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from_name','smtp_from_email','company_name','email_signature','dept_hcns_email','dept_it_mynth_email','dept_it_hungnx_email','dept_cb_phuongth_email','reminder_email'].forEach(k => {
       const el = $('#'+k); if (el) data[k] = el.value;
     });
+    const chk = $('#reminder_enabled'); if (chk) data.reminder_enabled = chk.checked;
     await api.put('/api/settings', data);
     toast('✅ Đã lưu','success');
   };
@@ -1887,6 +1904,15 @@ routes.settings = async () => {
   $('#btnSave1').onclick = saveWrapped;
   $('#btnSave2').onclick = saveWrapped;
   $('#btnSave3').onclick = saveWrapped;
+  $('#btnSave4').onclick = saveWrapped;
+  $('#btnTestReminder').onclick = withLoading(async () => {
+    await save(); // lưu email + bật/tắt trước khi gửi thử
+    const r = await api.post('/api/reminders/run', {});
+    if (r.error) return toast('❌ '+r.error,'error');
+    if (r.skipped) return toast('ℹ️ '+(r.reason||'Đã bỏ qua'),'info');
+    if (r.totalDue === 0) return toast('ℹ️ Hôm nay không có email tới hạn để nhắc','info');
+    toast(`✅ Đã gửi mail nhắc (${r.totalDue} email tới hạn) tới ${r.to}`,'success');
+  }, 'Đang gửi mail nhắc...');
   // Toggle hiện/ẩn password
   $$('.toggle-pwd').forEach(btn => {
     btn.onclick = () => {
