@@ -1818,10 +1818,10 @@ routes.settings = async () => {
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         ${fld('smtp_host','SMTP Host', s.smtp_host, 'smtp.gmail.com')}
         ${fld('smtp_port','SMTP Port', s.smtp_port, '587')}
-        ${fld('smtp_user','SMTP User', s.smtp_user, 'haiht@apero.vn')}
+        ${fld('smtp_user','SMTP User', s.smtp_user, 'ThuyNTT1@apero.vn')}
         ${fldPwd('smtp_pass','SMTP Password / App Password', s.smtp_pass, 'App Password 16 ký tự (có/không space đều OK)')}
         ${fld('smtp_from_name','From Name', s.smtp_from_name, 'APERO HR')}
-        ${fld('smtp_from_email','From Email', s.smtp_from_email, 'haiht@apero.vn')}
+        ${fld('smtp_from_email','From Email', s.smtp_from_email, 'ThuyNTT1@apero.vn')}
       </div>
       <div class="mt-4 flex gap-2 flex-wrap items-center">
         <button class="btn btn-primary" id="btnSave1">💾 Lưu cấu hình</button>
@@ -1847,7 +1847,7 @@ routes.settings = async () => {
       <h2 class="font-bold text-slate-900 mb-2">⏰ Nhắc deadline gửi mail</h2>
       <p class="text-sm text-slate-500 mb-4">Mỗi sáng <b>8h</b> (1 tiếng trước giờ hệ thống tự gửi 9h), tool sẽ gửi 1 email tổng hợp các mail onboarding tới hạn trong ngày — đặc biệt cảnh báo những mail <b>chưa được duyệt</b> để bạn vào kiểm tra kịp thời.</p>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        ${fld('reminder_email','Email nhận nhắc nhở', s.reminder_email, 'haiht@apero.vn')}
+        ${fld('reminder_email','Email nhận nhắc nhở', s.reminder_email, 'ThuyNTT1@apero.vn')}
       </div>
       <label class="flex items-center gap-2 mt-3 text-sm text-slate-700 cursor-pointer">
         <input type="checkbox" id="reminder_enabled" ${s.reminder_enabled !== false ? 'checked' : ''}/>
